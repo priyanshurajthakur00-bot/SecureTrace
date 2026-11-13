@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const locationSchema = new mongoose.Schema({
-    trackingKey: { type: String, required: true },
+    deviceId: { type: String, required: true },
     latitude: { type: String, required: true },
     longitude: { type: String, required: true },
     accuracy: { type: String },

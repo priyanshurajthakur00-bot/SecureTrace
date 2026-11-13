@@ -7,36 +7,31 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 let marker, circle;
 let trackingInterval;
 
-// Login karte waqt jo Data save kiya tha, usko nikalna
-const myTrackingKey = localStorage.getItem('sys_tracking_key');
+const myDeviceId = localStorage.getItem('sys_device_id');
 const myUsername = localStorage.getItem('sys_username');
 
-// Top bar mein user ka naam dikhana
 if(myUsername) {
     document.querySelector('.top-nav h2').innerText = `SYS.SECURE_TRACE // COMMAND_CENTER [AGENT: ${myUsername.toUpperCase()}]`;
 }
 
-// NAYA CODE: Dashboard par Secret Key show karna
-if(myTrackingKey) {
-    document.getElementById('display-key').innerText = myTrackingKey;
+if(myDeviceId) {
+    document.getElementById('display-key').innerText = myDeviceId;
 }
 
 document.getElementById('track-btn').addEventListener('click', function() {
     const statusText = document.getElementById('status');
-    statusText.innerText = "SEARCHING FOR KEY: " + myTrackingKey;
+    statusText.innerText = "SCANNING DEVICE ID: " + myDeviceId;
     statusText.style.color = "#00f3ff";
 
-    // Har 3 second mein location refresh karna
     trackingInterval = setInterval(fetchTargetLocation, 3000);
     fetchTargetLocation();
 });
 
 function fetchTargetLocation() {
-    // Ab hum Dashboard se Server ko bata rahe hain ki humein kiski location chahiye (via POST)
     fetch('/api/get-location', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trackingKey: myTrackingKey })
+        body: JSON.stringify({ deviceId: myDeviceId })
     })
     .then(response => response.json())
     .then(data => {
