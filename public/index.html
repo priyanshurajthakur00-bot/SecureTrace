@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureTrace | Advanced Location Tracker</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* Thodi extra styling Sign Up form toggle ke liye */
+        .tab-container {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--text-dim);
+        }
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            cursor: pointer;
+            color: var(--text-dim);
+            transition: 0.3s;
+        }
+        .tab.active {
+            color: var(--accent);
+            border-bottom: 2px solid var(--accent);
+        }
+        .form-section { display: none; }
+        .form-section.active { display: block; }
+        #key-display {
+            display: none;
+            background: rgba(0, 255, 65, 0.1);
+            border: 1px solid var(--accent);
+            padding: 15px;
+            margin-top: 15px;
+            text-align: center;
+        }
+        .secret-key {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--accent);
+            letter-spacing: 2px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Live Wallpaper -->
+    <canvas id="matrix-canvas"></canvas>
+    
+    <div class="login-container">
+        <div class="header">
+            <h1>SYS.SECURE_TRACE</h1>
+            <p class="subtitle">MULTI-USER TRACKING TERMINAL</p>
+        </div>
+
+        <div class="login-box">
+            
+            <!-- Tabs for Login / Register -->
+            <div class="tab-container">
+                <div class="tab active" onclick="switchTab('login')">AUTHENTICATE</div>
+                <div class="tab" onclick="switchTab('register')">NEW_USER</div>
+            </div>
+
+            <!-- LOGIN FORM -->
+            <div id="login-form" class="form-section active">
+                <div class="input-group">
+                    <label>USERNAME</label>
+                    <input type="text" placeholder="Enter identification..." id="login-username">
+                </div>
+                <div class="input-group">
+                    <label>ACCESS_KEY (PASSWORD)</label>
+                    <input type="password" placeholder="Enter access key..." id="login-password">
+                </div>
+                <button class="btn-primary" onclick="attemptLogin()" id="loginBtn">INITIALIZE CONNECTION</button>
+            </div>
+
+            <!-- REGISTER FORM -->
+            <div id="register-form" class="form-section">
+                <div class="input-group">
+                    <label>DESIRED_USERNAME</label>
+                    <input type="text" placeholder="Create a username..." id="reg-username">
+                </div>
+                <div class="input-group">
+                    <label>CREATE_PASSWORD</label>
+                    <input type="password" placeholder="Create a strong key..." id="reg-password">
+                </div>
+                <button class="btn-primary" onclick="attemptRegister()" id="regBtn">GENERATE TRACKING KEY</button>
+                
+                <!-- Display Secret Key After Registration -->
+                <div id="key-display">
+                    <p>REGISTRATION SUCCESSFUL!</p>
+                    <p>Your Unique Tracking Key:</p>
+                    <div class="secret-key" id="the-key">TRK-XXXXXX</div>
+                    <p style="font-size: 11px; margin-top:10px; color:#aaa;">Save this key. You will need it to track your device.</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/app.js"></script>
+    <script>
+        // Tab Switcher Logic
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.form-section').forEach(f => f.classList.remove('active'));
+            
+            if(tabName === 'login') {
+                document.querySelectorAll('.tab')[0].classList.add('active');
+                document.getElementById('login-form').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab')[1].classList.add('active');
+                document.getElementById('register-form').classList.add('active');
+            }
+        }
+
+        // --- NEW USER REGISTRATION ---
+        function attemptRegister() {
+            const user = document.getElementById('reg-username').value;
+            const pass = document.getElementById('reg-password').value;
+            const btn = document.getElementById('regBtn');
+
+            if(user === "" || pass === "") {
+                alert("Please fill all fields.");
+                return;
+            }
+
+            btn.innerText = "GENERATING...";
+            
+            fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user, password: pass })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    // Registration Pass - Show Key
+                    document.getElementById('key-display').style.display = 'block';
+                    // Extract key from message (format: "...Key is: TRK-XXXXX")
+                    const key = data.message.split('Key is: ')[1];
+                    document.getElementById('the-key').innerText = key;
+                    btn.style.display = 'none'; // Hide button after success
+                } else {
+                    alert("ERROR: " + data.message);
+                    btn.innerText = "GENERATE TRACKING KEY";
+                }
+            })
+            .catch(err => {
+                alert("Server Connection Error");
+                btn.innerText = "GENERATE TRACKING KEY";
+            });
+        }
+
+        // --- LOGIN LOGIC ---
+        function attemptLogin() {
+            const user = document.getElementById('login-username').value;
+            const pass = document.getElementById('login-password').value;
+            const btn = document.getElementById('loginBtn');
+
+            if(user === "" || pass === "") {
+                alert("PLEASE ENTER CREDENTIALS.");
+                return;
+            }
+
+            btn.innerText = "AUTHENTICATING...";
+
+            fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user, password: pass })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    // Login Sahi Hai - Token aur Tracking Key save karein
+                    localStorage.setItem('sys_auth_token', 'granted');
+                    localStorage.setItem('sys_username', user);
+                    localStorage.setItem('sys_tracking_key', data.trackingKey); // Key save kar li
+                    
+                    window.location.href = 'dashboard.html';
+                } else {
+                    alert("ERROR: " + data.message);
+                    btn.innerText = "INITIALIZE CONNECTION";
+                }
+            })
+            .catch(err => {
+                alert("Server Error");
+                btn.innerText = "INITIALIZE CONNECTION";
+            });
+        }
+    </script>
+</body>
+</html>

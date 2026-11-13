@@ -1,0 +1,9 @@
+# Ignore Node Dependencies (Heavy folder)
+node_modules/
+
+# Ignore Environment Variables (To protect passwords/keys)
+.env
+
+# Ignore OS generated files
+.DS_Store
+Thumbs.db

