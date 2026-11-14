@@ -4,7 +4,7 @@
   "description": "SecureTrace is a professional, full-stack location tracking web application designed to locate lost or stolen devices. It utilizes GPS data to securely track devices in real-time.",
   "main": "server.js",
     "scripts": {
-    "start": "node server.js"
+    "start": "node app.js"
   },
 
   "keywords": [],
