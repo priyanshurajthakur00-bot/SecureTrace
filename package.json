@@ -1,10 +1,11 @@
 {
   "name": "securetrace",
   "version": "1.0.0",
-  "description": "",
+  "description": "SecureTrace is a professional, full-stack location tracking web application designed to locate lost or stolen devices. It utilizes GPS data to securely track devices in real-time.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
@@ -15,5 +16,13 @@
     "dotenv": "^18.0.10",
     "express": "^5.3.0",
     "mongoose": "^9.12.1"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/priyanshurajthakur00-bot/SecureTrace.git"
+  },
+  "bugs": {
+    "url": "https://github.com/priyanshurajthakur00-bot/SecureTrace/issues"
+  },
+  "homepage": "https://github.com/priyanshurajthakur00-bot/SecureTrace#readme"
 }
