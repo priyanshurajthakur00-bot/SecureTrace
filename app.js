@@ -12,6 +12,8 @@ const PORT = process.env.PORT || 10000; // Render port
 
 app.use(cors());
 app.use(express.json());
+
+// Public folder connect karna
 app.use(express.static(path.join(__dirname, 'public')));
 
 // 1. DATABASE CONNECTION
@@ -83,8 +85,8 @@ app.post('/api/get-location', async (req, res) => {
     }
 });
 
-// 6. CATCH-ALL ROUTE (Yeh "Not Found" error ko fix karega)
-app.get('*', (req, res) => {
+// 6. CATCH-ALL ROUTE (Fixed for Express v5)
+app.get('/(.*)', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
