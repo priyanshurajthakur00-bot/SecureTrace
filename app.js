@@ -13,8 +13,8 @@ const PORT = process.env.PORT || 10000; // Render port
 app.use(cors());
 app.use(express.json());
 
-// Public folder connect karna
-app.use(express.static(path.join(__dirname, 'public')));
+// Public folder ki jagah ab hum 'frontend' use kar rahe hain
+app.use(express.static(path.join(__dirname, 'frontend')));
 
 // 1. DATABASE CONNECTION
 const mongoURI = process.env.MONGO_URI; 
@@ -85,9 +85,9 @@ app.post('/api/get-location', async (req, res) => {
     }
 });
 
-// 6. CATCH-ALL ROUTE (Fixed for Express v5)
+// 6. CATCH-ALL ROUTE (Crash-proof aur Frontend folder ke sath)
 app.use((req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
 });
 
 // 7. START SERVER
