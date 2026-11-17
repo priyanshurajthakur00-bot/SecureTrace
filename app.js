@@ -86,7 +86,7 @@ app.post('/api/get-location', async (req, res) => {
 });
 
 // 6. CATCH-ALL ROUTE (Fixed for Express v5)
-app.get('/(.*)', (req, res) => {
+app.use((req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
