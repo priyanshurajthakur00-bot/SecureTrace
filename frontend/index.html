@@ -7,93 +7,59 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <link rel="stylesheet" href="css/style.css">
     <style>
-        /* NAYA CSS: Full Screen Map Ke Liye */
-        .fullscreen-map {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            z-index: 9999 !important;
-            border-radius: 0 !important;
-            border: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #000 !important;
-        }
-        .btn-fullscreen {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            z-index: 10000;
-            background: rgba(0, 0, 0, 0.8);
-            color: #00ff41;
-            border: 2px solid #00ff41;
-            padding: 8px 15px;
-            cursor: pointer;
-            font-weight: bold;
-            border-radius: 5px;
-            transition: 0.3s;
-        }
-        .btn-fullscreen:hover {
-            background: #00ff41;
-            color: #000;
-        }
+        .fullscreen-map { position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 9999 !important; border-radius: 0 !important; border: none !important; margin: 0 !important; padding: 0 !important; background: #000 !important;}
+        .btn-fullscreen { position: absolute; top: 15px; right: 15px; z-index: 10000; background: rgba(0, 0, 0, 0.8); color: #00ff41; border: 2px solid #00ff41; padding: 8px 15px; cursor: pointer; font-weight: bold; border-radius: 5px; transition: 0.3s; }
+        .btn-fullscreen:hover { background: #00ff41; color: #000; }
     </style>
 </head>
 <body>
     <canvas id="matrix-canvas"></canvas>
     
     <div class="login-container" id="main-container" style="width: 100%; max-width: 450px; padding: 20px; transition: max-width 0.4s ease;">
-        
         <div class="header">
             <h1>SYS.SECURE_TRACE</h1>
             <p class="subtitle" id="form-subtitle">GLOBAL ANTI-THEFT NETWORK</p>
         </div>
 
-        <!-- 1. LOGIN / REGISTER -->
+        <!-- 1. LOGIN -->
         <div class="login-box" id="auth-section">
-            <div class="input-group">
-                <label>USERNAME</label>
-                <input type="text" placeholder="Enter username..." id="username">
-            </div>
-            <div class="input-group">
-                <label>PASSWORD</label>
-                <input type="password" placeholder="Enter password..." id="password">
-            </div>
+            <div class="input-group"><label>USERNAME</label><input type="text" id="username"></div>
+            <div class="input-group"><label>PASSWORD</label><input type="password" id="password"></div>
             <button class="btn-primary" onclick="processAuth()" id="actionBtn">SECURE LOGIN</button>
             <div class="divider"><span>OR</span></div>
             <button class="btn-google" onclick="toggleForm()" id="toggleBtn">CREATE NEW ACCOUNT</button>
         </div>
 
-        <!-- 2. MAIN MENU -->
+        <!-- 2. MENU -->
         <div class="login-box" id="menu-section" style="display: none; text-align: center;">
             <h3 style="color: #00ff41; margin-bottom: 20px;">WELCOME, <span id="agent-name"></span></h3>
             <button class="btn-primary" onclick="activateTracking()" style="margin-bottom: 15px;">🗺️ TRACK LOST PHONE</button>
             <button class="btn-google" onclick="activateProtection()" style="border-color: #ff003c; color: #ff003c;">🛡️ PROTECT THIS DEVICE</button>
-            <button class="btn-logout" onclick="location.reload()" style="margin-top: 30px; width: 100%;">DISCONNECT (LOGOUT)</button>
+            <button class="btn-logout" onclick="location.reload()" style="margin-top: 30px; width: 100%;">DISCONNECT</button>
         </div>
 
-        <!-- 3. PROTECT MODE -->
+        <!-- 3. PROTECT -->
         <div class="login-box" id="protect-section" style="display: none; text-align: center;">
             <div class="blinking-dot" style="margin: 0 auto 15px auto;"></div>
             <h3 style="color: #00ff41; margin-bottom: 15px;">🛡️ PROTECTION ACTIVE</h3>
-            <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Live GPS location is beaming to server. Leave this page open in background.</p>
+            <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Live GPS & Device Status beaming to server...</p>
             <p id="gps-log" style="font-size: 13px; color: #00f3ff; font-weight: bold;"></p>
             <button class="btn-logout" onclick="location.reload()" style="margin-top: 30px; width: 100%;">STOP PROTECTION</button>
         </div>
 
-        <!-- 4. TRACK MODE -->
+        <!-- 4. TRACK DASHBOARD -->
         <div id="track-section" style="display: none; width: 100%;">
             <div style="height: 65vh; width: 100%; display: flex; gap: 20px; flex-wrap: wrap;">
                 
-                <!-- Target Details Box -->
+                <!-- Target Data -->
                 <div class="target-details hud-box" style="flex: 1; min-width: 250px;">
                     <div class="corner-tl"></div><div class="corner-tr"></div>
                     <div class="corner-bl"></div><div class="corner-br"></div>
                     <h3><span class="blinking-dot" style="display:inline-block; margin-right:10px;"></span>TARGET DATA</h3>
                     <div class="info-box">
                         <p>STATUS: <span id="status" style="color: #ff003c;">CONNECTING...</span></p>
+                        <p>BATTERY: <span id="batt">--%</span></p>
+                        <p>NETWORK: <span id="net">--</span></p>
                         <p>LATITUDE: <span id="lat">--.-----</span></p>
                         <p>LONGITUDE: <span id="lng">--.-----</span></p>
                         <p>ACCURACY: <span id="acc">-- meters</span></p>
@@ -102,18 +68,16 @@
                     <button class="btn-logout" onclick="location.reload()" style="margin-top: 20px; width: 100%;">EXIT MAP</button>
                 </div>
                 
-                <!-- MAP BOX (Yahan Full Screen Button Add Kiya Hai) -->
+                <!-- Map Area -->
                 <div class="map-area hud-box" id="map-container" style="flex: 2; min-width: 300px; padding: 5px; position: relative;">
                     <button class="btn-fullscreen" id="fs-btn" onclick="toggleFullScreen()">⛶ FULL SCREEN</button>
                     <div id="map" style="width: 100%; height: 100%; min-height: 300px; border-radius: 10px;"></div>
                     <div class="crosshair"></div>
                 </div>
-
             </div>
         </div>
     </div>
 
-    <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/app.js"></script> 
     
@@ -122,24 +86,16 @@
         let globalDeviceId = "";
         let map, marker, circle, trackingInterval;
         let isFirstLocationLoad = true;
-        let isFullScreen = false; // Full Screen status
+        let isFullScreen = false;
 
-        // Full Screen Toggle Function
         function toggleFullScreen() {
             const mapBox = document.getElementById('map-container');
             const fsBtn = document.getElementById('fs-btn');
-            
             if(!isFullScreen) {
-                mapBox.classList.add('fullscreen-map');
-                fsBtn.innerText = "✖ EXIT FULL SCREEN";
-                isFullScreen = true;
+                mapBox.classList.add('fullscreen-map'); fsBtn.innerText = "✖ EXIT FULL SCREEN"; isFullScreen = true;
             } else {
-                mapBox.classList.remove('fullscreen-map');
-                fsBtn.innerText = "⛶ FULL SCREEN";
-                isFullScreen = false;
+                mapBox.classList.remove('fullscreen-map'); fsBtn.innerText = "⛶ FULL SCREEN"; isFullScreen = false;
             }
-            
-            // Map ko naye size par set karna zaroori hai
             setTimeout(() => { if(map) map.invalidateSize(); }, 300);
         }
 
@@ -160,12 +116,9 @@
             
             const endpoint = isLoginMode ? '/api/login' : '/api/register';
             fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: user, password: pass })
-            })
-            .then(res => res.json())
-            .then(data => {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user, password: pass, deviceId: "DEV-" + Math.floor(Math.random()*99999) })
+            }).then(res => res.json()).then(data => {
                 if(data.success) {
                     if(isLoginMode) {
                         globalDeviceId = data.deviceId;
@@ -173,15 +126,13 @@
                         document.getElementById('menu-section').style.display = 'block';
                         document.getElementById('agent-name').innerText = user.toUpperCase();
                         document.getElementById('form-subtitle').innerText = 'ACTION MENU';
-                    } else {
-                        alert("Account Created! You can now Login.");
-                        toggleForm();
-                    }
+                    } else { alert("Account Created! You can now Login."); toggleForm(); }
                 } else { alert("Error: " + data.message); }
                 btn.innerText = isLoginMode ? "SECURE LOGIN" : "REGISTER NOW";
             }).catch(err => { alert("Server error!"); btn.innerText = "SECURE LOGIN"; });
         }
 
+        // GET BATTERY & NETWORK AND SEND TO SERVER
         function activateProtection() {
             document.getElementById('menu-section').style.display = 'none';
             document.getElementById('protect-section').style.display = 'block';
@@ -190,15 +141,37 @@
             logText.innerText = "Acquiring GPS Signal...";
 
             if (navigator.geolocation) {
-                navigator.geolocation.watchPosition((position) => {
+                navigator.geolocation.watchPosition(async (position) => {
+                    
+                    let batteryStr = "Unknown";
+                    let netStr = "Unknown";
+
+                    // Battery check
+                    if (navigator.getBattery) {
+                        try {
+                            let bat = await navigator.getBattery();
+                            batteryStr = Math.round(bat.level * 100) + "%";
+                            if(bat.charging) batteryStr += " ⚡"; // Charging icon
+                        } catch(e) {}
+                    }
+                    
+                    // Network check
+                    if (navigator.connection) {
+                        netStr = navigator.connection.effectiveType ? navigator.connection.effectiveType.toUpperCase() : "ONLINE";
+                    }
+
                     fetch('/api/update-location', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            deviceId: globalDeviceId, lat: position.coords.latitude,
-                            lng: position.coords.longitude, accuracy: position.coords.accuracy
+                            deviceId: globalDeviceId, 
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude, 
+                            accuracy: position.coords.accuracy,
+                            battery: batteryStr,
+                            network: netStr
                         })
-                    }).then(() => logText.innerText = `Location Synced: ${new Date().toLocaleTimeString()}`);
+                    }).then(() => logText.innerText = `Data Synced: ${new Date().toLocaleTimeString()}`);
                 }, (err) => {
                     logText.innerText = "GPS Error: Please allow location access!";
                     logText.style.color = "#ff003c";
@@ -206,6 +179,7 @@
             }
         }
 
+        // DASHBOARD TRACKING
         function activateTracking() {
             document.getElementById('menu-section').style.display = 'none';
             document.getElementById('track-section').style.display = 'block';
@@ -216,8 +190,7 @@
                 if(!map) {
                     map = L.map('map').setView([20.0, 0.0], 2);
                     L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-                        maxZoom: 19,
-                        attribution: '© Google Maps'
+                        maxZoom: 19, attribution: '© Google Maps'
                     }).addTo(map);
                 }
                 map.invalidateSize(); 
@@ -239,6 +212,9 @@
                     document.getElementById('lat').innerText = data.lat.toFixed(5);
                     document.getElementById('lng').innerText = data.lng.toFixed(5);
                     document.getElementById('acc').innerText = Math.round(data.accuracy) + " meters";
+                    document.getElementById('batt').innerText = data.battery; // NAYA: Battery display
+                    document.getElementById('net').innerText = data.network;   // NAYA: Network display
+                    
                     document.getElementById('status').innerText = data.status;
                     document.getElementById('status').style.color = "#00ff41";
 
