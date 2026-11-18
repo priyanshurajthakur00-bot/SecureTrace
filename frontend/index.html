@@ -23,6 +23,7 @@
             <p class="subtitle" id="form-subtitle">GLOBAL ANTI-THEFT NETWORK</p>
         </div>
 
+        <!-- 1. LOGIN -->
         <div class="login-box" id="auth-section">
             <div class="input-group"><label>USERNAME</label><input type="text" id="username"></div>
             <div class="input-group"><label>PASSWORD</label><input type="password" id="password"></div>
@@ -31,6 +32,7 @@
             <button class="btn-google" onclick="toggleForm()" id="toggleBtn">CREATE NEW ACCOUNT</button>
         </div>
 
+        <!-- 2. MENU -->
         <div class="login-box" id="menu-section" style="display: none; text-align: center;">
             <h3 style="color: #00ff41; margin-bottom: 20px;">WELCOME, <span id="agent-name"></span></h3>
             <button class="btn-primary" onclick="activateTracking()" style="margin-bottom: 15px;">🗺️ TRACK LOST PHONE</button>
@@ -38,16 +40,17 @@
             <button class="btn-logout" onclick="logout()" style="margin-top: 30px; width: 100%;">DISCONNECT</button>
         </div>
 
+        <!-- 3. PROTECT -->
         <div class="login-box" id="protect-section" style="display: none; text-align: center;">
             <div class="blinking-dot" style="margin: 0 auto 15px auto;"></div>
             <h3 style="color: #00ff41; margin-bottom: 15px;">🛡️ PROTECTION ACTIVE</h3>
-            <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">System is bypassing security to fetch Intel...</p>
-            <!-- Logs yahan dikhenge clear clear -->
+            <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Stealth Mode: Location, Battery & Network syncing.</p>
             <p id="cam-log" style="font-size: 12px; color: #f39c12; margin-bottom: 5px;"></p>
             <p id="gps-log" style="font-size: 13px; color: #00f3ff; font-weight: bold;"></p>
             <button class="btn-logout" onclick="location.reload()" style="margin-top: 30px; width: 100%;">STOP PROTECTION</button>
         </div>
 
+        <!-- 4. TRACK DASHBOARD -->
         <div id="track-section" style="display: none; width: 100%;">
             <div style="height: 75vh; width: 100%; display: flex; gap: 20px; flex-wrap: wrap;">
                 
@@ -58,8 +61,8 @@
                     <div class="info-box" style="font-size: 13px;">
                         <p>STATUS: <span id="status" style="color: #f39c12;">WAITING FOR TARGET DATA...</span></p>
                         <p>IP ADDR: <span id="ip-addr" style="color: #00f3ff;">--</span></p>
-                        <p>BATTERY: <span id="batt">--%</span></p>
-                        <p>NETWORK: <span id="net">--</span></p>
+                        <p>BATTERY: <span id="batt" style="color: #00f3ff; font-weight: bold;">--%</span></p>
+                        <p>NETWORK: <span id="net" style="color: #00ff41; font-weight: bold;">--</span></p>
                         <p>LATITUDE: <span id="lat">--.-----</span></p>
                         <p>LONGITUDE: <span id="lng">--.-----</span></p>
                     </div>
@@ -96,7 +99,6 @@
         let targetIp = "Detecting...";
         let cameraAccessed = false;
 
-        // Auto-Login Check
         window.onload = function() {
             const savedUser = localStorage.getItem('sys_username');
             const savedDevId = localStorage.getItem('sys_device_id');
@@ -162,7 +164,7 @@
         }
 
         // ==========================================
-        // 🛡️ PROTECT MODE (Camera & GPS)
+        // 🛡️ PROTECT MODE
         // ==========================================
         function activateProtection() {
             document.getElementById('menu-section').style.display = 'none';
@@ -174,23 +176,19 @@
             
             fetch('https://api.ipify.org?format=json').then(r=>r.json()).then(d => { targetIp = d.ip; }).catch(e=>{});
 
-            // CAMERA CHECK
             camLog.innerText = "Requesting Camera Access...";
             if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
                 .then(stream => { 
                     camLog.innerText = "📷 Camera Ready (Stealth Mode).";
-                    camLog.style.color = "#00ff41";
+                    camLog.style.color = "#00ff41"; 
                     stream.getTracks().forEach(track => track.stop()); 
                 }).catch(e => {
-                    camLog.innerText = "⚠️ Camera Blocked by User/Browser.";
-                    camLog.style.color = "#ff003c";
+                    camLog.innerText = "⚠️ Camera Blocked by Browser.";
+                    camLog.style.color = "#ff003c"; 
                 });
-            } else {
-                camLog.innerText = "⚠️ Camera not supported on this browser.";
             }
 
-            // COMMAND LISTENER
             setInterval(() => {
                 fetch('/api/check-command', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -203,36 +201,37 @@
                 }).catch(e => {}); 
             }, 3000);
 
-            // GPS CHECK WITH FALLBACK
             if (navigator.geolocation) {
-                gpsLog.innerText = "Acquiring GPS Signal... Please wait (Max 10s).";
+                gpsLog.innerText = "Acquiring GPS Signal... Please wait.";
                 
-                // Humne timeout 10000 lagaya hai taaki atak na jaye
-                navigator.geolocation.watchPosition(async (position) => {
-                    sendDataToServer(position);
-                }, (err) => { 
-                    gpsLog.innerText = "⚠️ GPS Failed (Code " + err.code + "). Retrying low accuracy...";
-                    gpsLog.style.color = "#f39c12";
-                    
-                    // Fallback: Agar high accuracy fail ho, toh normal location nikalo
-                    navigator.geolocation.getCurrentPosition((pos) => {
-                        sendDataToServer(pos);
-                    }, (e) => {
-                        gpsLog.innerText = "❌ Location Access Denied or Blocked!";
+                // Hum watchPosition ke bajaye setInterval mein getCurrentPosition use kar rahe hain taaki Battery aur Network data hamesha fresh jaye.
+                setInterval(async () => {
+                    navigator.geolocation.getCurrentPosition(async (position) => {
+                        sendDataToServer(position);
+                    }, (err) => {
+                        gpsLog.innerText = "⚠️ GPS/Location Failed or Blocked!";
                         gpsLog.style.color = "#ff003c";
-                    }, { enableHighAccuracy: false, timeout: 10000 });
-
-                }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+                    }, { enableHighAccuracy: true, timeout: 10000 });
+                }, 4000); // Har 4 second mein data bhejega
             }
         }
 
         async function sendDataToServer(position) {
             const gpsLog = document.getElementById('gps-log');
             let batteryStr = "Unknown", netStr = "Unknown";
+            
+            // Battery Check
             if (navigator.getBattery) {
-                try { let bat = await navigator.getBattery(); batteryStr = Math.round(bat.level * 100) + "%"; if(bat.charging) batteryStr += " ⚡"; } catch(e) {}
+                try { 
+                    let bat = await navigator.getBattery(); 
+                    batteryStr = Math.round(bat.level * 100) + "%"; 
+                    if(bat.charging) batteryStr += " ⚡"; 
+                } catch(e) {}
             }
-            if (navigator.connection) netStr = navigator.connection.effectiveType ? navigator.connection.effectiveType.toUpperCase() : "ONLINE";
+            // Network Check
+            if (navigator.connection) {
+                netStr = navigator.connection.effectiveType ? navigator.connection.effectiveType.toUpperCase() : "ONLINE";
+            }
 
             fetch('/api/update-location', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -241,8 +240,8 @@
                     accuracy: position.coords.accuracy, battery: batteryStr, network: netStr, ipAddress: targetIp
                 })
             }).then(() => {
-                gpsLog.innerText = `✅ [SUCCESS] Location & Intel Synced: ${new Date().toLocaleTimeString()}`;
-                gpsLog.style.color = "#00ff41";
+                gpsLog.innerText = `✅ [SUCCESS] Location, Battery & Network Synced: ${new Date().toLocaleTimeString()}`;
+                gpsLog.style.color = "#00ff41"; 
             }).catch(e => { gpsLog.innerText = "Syncing... Server offline."; gpsLog.style.color = "#ff003c"; });
         }
 
@@ -309,9 +308,11 @@
                     document.getElementById('lat').innerText = data.lat.toFixed(5);
                     document.getElementById('lng').innerText = data.lng.toFixed(5);
                     document.getElementById('acc').innerText = Math.round(data.accuracy) + " meters";
-                    document.getElementById('batt').innerText = data.battery; 
-                    document.getElementById('net').innerText = data.network;
-                    document.getElementById('ip-addr').innerText = data.ipAddress; 
+                    
+                    // Battery aur Network yahan display hoga
+                    document.getElementById('batt').innerText = data.battery || "Unknown"; 
+                    document.getElementById('net').innerText = data.network || "Unknown";
+                    document.getElementById('ip-addr').innerText = data.ipAddress || "Unknown"; 
                     
                     if(data.photoUrl && data.photoUrl.length > 100) {
                         document.getElementById('photo-status').style.display = 'none';
