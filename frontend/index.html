@@ -17,6 +17,7 @@
             <p class="subtitle" id="form-subtitle">GLOBAL ANTI-THEFT NETWORK</p>
         </div>
 
+        <!-- 1. LOGIN / REGISTER -->
         <div class="login-box" id="auth-section">
             <div class="input-group">
                 <label>USERNAME</label>
@@ -31,6 +32,7 @@
             <button class="btn-google" onclick="toggleForm()" id="toggleBtn">CREATE NEW ACCOUNT</button>
         </div>
 
+        <!-- 2. MAIN MENU -->
         <div class="login-box" id="menu-section" style="display: none; text-align: center;">
             <h3 style="color: #00ff41; margin-bottom: 20px;">WELCOME, <span id="agent-name"></span></h3>
             <button class="btn-primary" onclick="activateTracking()" style="margin-bottom: 15px;">🗺️ TRACK LOST PHONE</button>
@@ -38,6 +40,7 @@
             <button class="btn-logout" onclick="location.reload()" style="margin-top: 30px; width: 100%;">DISCONNECT (LOGOUT)</button>
         </div>
 
+        <!-- 3. PROTECT MODE -->
         <div class="login-box" id="protect-section" style="display: none; text-align: center;">
             <div class="blinking-dot" style="margin: 0 auto 15px auto;"></div>
             <h3 style="color: #00ff41; margin-bottom: 15px;">🛡️ PROTECTION ACTIVE</h3>
@@ -46,6 +49,7 @@
             <button class="btn-logout" onclick="location.reload()" style="margin-top: 30px; width: 100%;">STOP PROTECTION</button>
         </div>
 
+        <!-- 4. TRACK MODE -->
         <div id="track-section" style="display: none; width: 100%;">
             <div style="height: 65vh; width: 100%; display: flex; gap: 20px; flex-wrap: wrap;">
                 <div class="target-details hud-box" style="flex: 1; min-width: 250px;">
@@ -61,6 +65,7 @@
                     <div class="radar-box"><div class="radar-scan"></div></div>
                     <button class="btn-logout" onclick="location.reload()" style="margin-top: 20px; width: 100%;">EXIT MAP</button>
                 </div>
+                
                 <div class="map-area hud-box" style="flex: 2; min-width: 300px; padding: 5px;">
                     <div id="map" style="width: 100%; height: 100%; min-height: 300px; border-radius: 10px;"></div>
                     <div class="crosshair"></div>
@@ -69,13 +74,17 @@
         </div>
     </div>
 
+    <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="js/app.js"></script>
+    <script src="js/app.js"></script> 
     
     <script>
         let isLoginMode = true;
         let globalDeviceId = "";
         let map, marker, circle, trackingInterval;
+        
+        // NAYA VARIABLE (Auto-Zoom fix karne ke liye)
+        let isFirstLocationLoad = true;
 
         function toggleForm() {
             isLoginMode = !isLoginMode;
@@ -149,13 +158,13 @@
             setTimeout(() => {
                 if(!map) {
                     map = L.map('map').setView([20.0, 0.0], 2);
-                    // Asli Google Maps (Galiyo ke naam aur normal map view ke sath)
                     L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-                        maxZoom: 19, // Isko 21 se 19 kar diya taaki blank na ho
+                        maxZoom: 19,
                         attribution: '© Google Maps'
                     }).addTo(map);
                 }
                 map.invalidateSize(); 
+                isFirstLocationLoad = true; // Tracking shuru hone par pehli baar true rahega
                 trackingInterval = setInterval(fetchTargetLocation, 3000);
                 fetchTargetLocation();
             }, 400); 
@@ -179,8 +188,13 @@
                     if (marker) { map.removeLayer(marker); map.removeLayer(circle); }
                     marker = L.marker([data.lat, data.lng]).addTo(map);
                     circle = L.circle([data.lat, data.lng], { radius: data.accuracy, color: 'red' }).addTo(map);
-                    // Zoom level 18 kiya hai taaki area ke naam saaf dikhein
-                    map.setView([data.lat, data.lng], 18); 
+                    
+                    // FIXED: Sirf pehli baar zoom karega, uske baad user map ko freely ghuma sakta hai!
+                    if (isFirstLocationLoad) {
+                        map.setView([data.lat, data.lng], 18); 
+                        isFirstLocationLoad = false;
+                    }
+
                 } else {
                     document.getElementById('status').innerText = "TARGET OFFLINE";
                     document.getElementById('status').style.color = "#ff003c";
