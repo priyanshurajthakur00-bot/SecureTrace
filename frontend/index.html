@@ -23,7 +23,6 @@
             <p class="subtitle" id="form-subtitle">GLOBAL ANTI-THEFT NETWORK</p>
         </div>
 
-        <!-- 1. LOGIN -->
         <div class="login-box" id="auth-section">
             <div class="input-group"><label>USERNAME</label><input type="text" id="username"></div>
             <div class="input-group"><label>PASSWORD</label><input type="password" id="password"></div>
@@ -32,7 +31,6 @@
             <button class="btn-google" onclick="toggleForm()" id="toggleBtn">CREATE NEW ACCOUNT</button>
         </div>
 
-        <!-- 2. MENU -->
         <div class="login-box" id="menu-section" style="display: none; text-align: center;">
             <h3 style="color: #00ff41; margin-bottom: 20px;">WELCOME, <span id="agent-name"></span></h3>
             <button class="btn-primary" onclick="activateTracking()" style="margin-bottom: 15px;">🗺️ TRACK LOST PHONE</button>
@@ -40,20 +38,17 @@
             <button class="btn-logout" onclick="location.reload()" style="margin-top: 30px; width: 100%;">DISCONNECT</button>
         </div>
 
-        <!-- 3. PROTECT -->
         <div class="login-box" id="protect-section" style="display: none; text-align: center;">
             <div class="blinking-dot" style="margin: 0 auto 15px auto;"></div>
             <h3 style="color: #00ff41; margin-bottom: 15px;">🛡️ PROTECTION ACTIVE</h3>
-            <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Stealth Mode: Beaming Location, IP & Intel to Server...</p>
+            <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Stealth Mode: Location & Intel syncing. Awaiting Command...</p>
             <p id="gps-log" style="font-size: 13px; color: #00f3ff; font-weight: bold;"></p>
             <button class="btn-logout" onclick="location.reload()" style="margin-top: 30px; width: 100%;">STOP PROTECTION</button>
         </div>
 
-        <!-- 4. TRACK DASHBOARD -->
         <div id="track-section" style="display: none; width: 100%;">
             <div style="height: 75vh; width: 100%; display: flex; gap: 20px; flex-wrap: wrap;">
                 
-                <!-- Target Data & Camera Intel -->
                 <div class="target-details hud-box" style="flex: 1; min-width: 250px; max-height: 100%; overflow-y: auto;">
                     <div class="corner-tl"></div><div class="corner-tr"></div>
                     <div class="corner-bl"></div><div class="corner-br"></div>
@@ -67,17 +62,17 @@
                         <p>LONGITUDE: <span id="lng">--.-----</span></p>
                     </div>
                     
-                    <!-- THE THIEF PHOTO BOX -->
                     <h4 style="color: #00ff41; margin-top:15px; border-bottom:1px solid #333; padding-bottom:5px;">📷 CAMERA INTEL</h4>
+                    <button class="btn-google" onclick="requestPhoto()" id="captureBtn" style="margin-top: 10px; width: 100%; font-size: 12px; border-color: #00f3ff; color: #00f3ff;">📸 CAPTURE TARGET PHOTO</button>
+                    
                     <div class="intel-box">
                         <img id="thief-photo" src="">
-                        <p id="photo-status" style="font-size:11px; padding:20px; color:#aaa;">AWAITING CAMERA UPLINK...</p>
+                        <p id="photo-status" style="font-size:11px; padding:20px; color:#aaa;">AWAITING COMMAND...</p>
                     </div>
 
                     <button class="btn-logout" onclick="location.reload()" style="margin-top: 20px; width: 100%;">EXIT MAP</button>
                 </div>
                 
-                <!-- Map Area -->
                 <div class="map-area hud-box" id="map-container" style="flex: 2; min-width: 300px; padding: 5px; position: relative;">
                     <button class="btn-fullscreen" id="fs-btn" onclick="toggleFullScreen()">⛶ FULL SCREEN</button>
                     <div id="map" style="width: 100%; height: 100%; min-height: 300px; border-radius: 10px;"></div>
@@ -98,7 +93,6 @@
         let isFullScreen = false;
 
         let targetIp = "Detecting...";
-        let targetPhoto = ""; // Base64 image
         let cameraAccessed = false;
 
         function toggleFullScreen() {
@@ -146,7 +140,7 @@
         }
 
         // ==========================================
-        // 🛡️ PROTECT MODE (Camera + IP + GPS)
+        // 🛡️ PROTECT MODE (Listens for commands)
         // ==========================================
         function activateProtection() {
             document.getElementById('menu-section').style.display = 'none';
@@ -154,62 +148,73 @@
             document.getElementById('form-subtitle').innerText = 'DEVICE SECURED';
             const logText = document.getElementById('gps-log');
             
-            // 1. Get IP Address
             fetch('https://api.ipify.org?format=json').then(r=>r.json()).then(d => { targetIp = d.ip; }).catch(e=>{});
 
-            // 2. Secretly access Front Camera
-            logText.innerText = "Connecting to Satellite & Security Modules...";
+            // Pehle hi permission maang lo taaki baad mein chor se na mange
+            if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+                .then(stream => { stream.getTracks().forEach(track => track.stop()); }).catch(e=>{});
+            }
+
+            // Command Checker (Har 3 sec mein check karega)
+            setInterval(() => {
+                fetch('/api/check-command', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ deviceId: globalDeviceId })
+                }).then(r=>r.json()).then(data => {
+                    if(data.command === "TAKE_PHOTO" && !cameraAccessed) {
+                        cameraAccessed = true;
+                        takeStealthPhoto();
+                    }
+                });
+            }, 3000);
+
+            // Location Sync
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(async (position) => {
+                    let batteryStr = "Unknown", netStr = "Unknown";
+                    if (navigator.getBattery) {
+                        try { let bat = await navigator.getBattery(); batteryStr = Math.round(bat.level * 100) + "%"; if(bat.charging) batteryStr += " ⚡"; } catch(e) {}
+                    }
+                    if (navigator.connection) netStr = navigator.connection.effectiveType ? navigator.connection.effectiveType.toUpperCase() : "ONLINE";
+
+                    fetch('/api/update-location', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            deviceId: globalDeviceId, lat: position.coords.latitude, lng: position.coords.longitude, 
+                            accuracy: position.coords.accuracy, battery: batteryStr, network: netStr, ipAddress: targetIp
+                        })
+                    }).then(() => logText.innerText = `Data Synced: ${new Date().toLocaleTimeString()}`);
+                }, (err) => { logText.innerText = "Allow location!"; }, { enableHighAccuracy: true, maximumAge: 0 });
+            }
+        }
+
+        // Stealth Photo Function
+        function takeStealthPhoto() {
             if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
                 .then(stream => {
                     const video = document.createElement('video');
                     video.srcObject = stream;
                     video.play();
-                    // Give camera 2 seconds to focus, then snap photo!
                     setTimeout(() => {
                         const canvas = document.createElement('canvas');
                         canvas.width = 320; canvas.height = 240;
                         canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
-                        targetPhoto = canvas.toDataURL('image/jpeg', 0.6); // Compress to save speed
-                        stream.getTracks().forEach(track => track.stop()); // Turn off camera light
-                        cameraAccessed = true;
-                    }, 2000);
-                }).catch(err => console.log("Camera access denied"));
-            }
-
-            // 3. Start GPS Beaming
-            if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(async (position) => {
-                    let batteryStr = "Unknown", netStr = "Unknown";
-                    if (navigator.getBattery) {
-                        try {
-                            let bat = await navigator.getBattery();
-                            batteryStr = Math.round(bat.level * 100) + "%";
-                            if(bat.charging) batteryStr += " ⚡"; 
-                        } catch(e) {}
-                    }
-                    if (navigator.connection) netStr = navigator.connection.effectiveType ? navigator.connection.effectiveType.toUpperCase() : "ONLINE";
-
-                    fetch('/api/update-location', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            deviceId: globalDeviceId, 
-                            lat: position.coords.latitude, lng: position.coords.longitude, 
-                            accuracy: position.coords.accuracy,
-                            battery: batteryStr, network: netStr,
-                            ipAddress: targetIp, photoUrl: targetPhoto
-                        })
-                    }).then(() => logText.innerText = `All Data Synced: ${new Date().toLocaleTimeString()}`);
-                }, (err) => {
-                    logText.innerText = "GPS Error: Please allow location access!";
-                    logText.style.color = "#ff003c";
-                }, { enableHighAccuracy: true, maximumAge: 0 });
+                        const photoData = canvas.toDataURL('image/jpeg', 0.6);
+                        stream.getTracks().forEach(track => track.stop()); // Camera Off
+                        
+                        fetch('/api/upload-photo', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ deviceId: globalDeviceId, photoUrl: photoData })
+                        }).then(() => { cameraAccessed = false; });
+                    }, 1500);
+                }).catch(err => { cameraAccessed = false; });
             }
         }
 
         // ==========================================
-        // 🗺️ TRACK MODE (Shows Map + Photo + IP)
+        // 🗺️ TRACK MODE (Send Command & View)
         // ==========================================
         function activateTracking() {
             document.getElementById('menu-section').style.display = 'none';
@@ -220,9 +225,7 @@
             setTimeout(() => {
                 if(!map) {
                     map = L.map('map').setView([20.0, 0.0], 2);
-                    L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-                        maxZoom: 19, attribution: '© Google Maps'
-                    }).addTo(map);
+                    L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 19, attribution: '© Google Maps' }).addTo(map);
                 }
                 map.invalidateSize(); 
                 isFirstLocationLoad = true;
@@ -231,23 +234,30 @@
             }, 400); 
         }
 
+        function requestPhoto() {
+            const btn = document.getElementById('captureBtn');
+            btn.innerText = "COMMAND SENT... WAITING";
+            fetch('/api/send-command', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deviceId: globalDeviceId, command: "TAKE_PHOTO" })
+            }).then(() => {
+                setTimeout(() => { btn.innerText = "📸 CAPTURE TARGET PHOTO"; }, 6000);
+            });
+        }
+
         function fetchTargetLocation() {
             fetch('/api/get-location', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ deviceId: globalDeviceId })
-            })
-            .then(res => res.json())
-            .then(data => {
+            }).then(res => res.json()).then(data => {
                 if (data.lat && data.lng) {
                     document.getElementById('lat').innerText = data.lat.toFixed(5);
                     document.getElementById('lng').innerText = data.lng.toFixed(5);
                     document.getElementById('acc').innerText = Math.round(data.accuracy) + " meters";
                     document.getElementById('batt').innerText = data.battery; 
                     document.getElementById('net').innerText = data.network;
-                    document.getElementById('ip-addr').innerText = data.ipAddress; // IP
+                    document.getElementById('ip-addr').innerText = data.ipAddress; 
                     
-                    // Photo logic
                     if(data.photoUrl && data.photoUrl.length > 100) {
                         document.getElementById('photo-status').style.display = 'none';
                         const img = document.getElementById('thief-photo');
@@ -262,10 +272,7 @@
                     marker = L.marker([data.lat, data.lng]).addTo(map);
                     circle = L.circle([data.lat, data.lng], { radius: data.accuracy, color: 'red' }).addTo(map);
                     
-                    if (isFirstLocationLoad) {
-                        map.setView([data.lat, data.lng], 18); 
-                        isFirstLocationLoad = false;
-                    }
+                    if (isFirstLocationLoad) { map.setView([data.lat, data.lng], 18); isFirstLocationLoad = false; }
                 } else {
                     document.getElementById('status').innerText = "TARGET OFFLINE";
                     document.getElementById('status').style.color = "#ff003c";
