@@ -3,125 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SecureTrace | Advanced Location Tracker</title>
+    <title>SecureTrace | Master Control</title>
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <link rel="stylesheet" href="css/style.css">
-    <style>
-        .tab-container { display: flex; margin-bottom: 20px; border-bottom: 1px solid var(--text-dim); }
-        .tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; color: var(--text-dim); transition: 0.3s; }
-        .tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
-        .form-section { display: none; }
-        .form-section.active { display: block; }
-    </style>
 </head>
 <body>
     <canvas id="matrix-canvas"></canvas>
     
-    <div class="login-container">
+    <div class="login-container" id="main-container" style="width: 100%; max-width: 450px; padding: 20px; transition: max-width 0.4s ease;">
+        
         <div class="header">
             <h1>SYS.SECURE_TRACE</h1>
-            <p class="subtitle">MULTI-USER TRACKING TERMINAL</p>
+            <p class="subtitle" id="form-subtitle">GLOBAL ANTI-THEFT NETWORK</p>
         </div>
 
-        <div class="login-box">
-            <div class="tab-container">
-                <div class="tab active" onclick="switchTab('login')">AUTHENTICATE</div>
-                <div class="tab" onclick="switchTab('register')">NEW_USER</div>
+        <!-- 1. LOGIN / REGISTER -->
+        <div class="login-box" id="auth-section">
+            <div class="input-group">
+                <label>USERNAME</label>
+                <input type="text" placeholder="Enter username..." id="username">
             </div>
-
-            <!-- LOGIN FORM -->
-            <div id="login-form" class="form-section active">
-                <div class="input-group">
-                    <label>USERNAME</label>
-                    <input type="text" placeholder="Enter identification..." id="login-username">
-                </div>
-                <div class="input-group">
-                    <label>PASSWORD</label>
-                    <input type="password" placeholder="Enter password..." id="login-password">
-                </div>
-                <button class="btn-primary" onclick="attemptLogin()" id="loginBtn">INITIALIZE CONNECTION</button>
+            <div class="input-group">
+                <label>PASSWORD</label>
+                <input type="password" placeholder="Enter password..." id="password">
             </div>
+            <button class="btn-primary" onclick="processAuth()" id="actionBtn">SECURE LOGIN</button>
+            <div class="divider"><span>OR</span></div>
+            <button class="btn-google" onclick="toggleForm()" id="toggleBtn">CREATE NEW ACCOUNT</button>
+        </div>
 
-            <!-- REGISTER FORM -->
-            <div id="register-form" class="form-section">
-                <div class="input-group">
-                    <label>DESIRED_USERNAME</label>
-                    <input type="text" placeholder="Create a username..." id="reg-username">
+        <!-- 2. MAIN MENU -->
+        <div class="login-box" id="menu-section" style="display: none; text-align: center;">
+            <h3 style="color: #00ff41; margin-bottom: 20px;">WELCOME, <span id="agent-name"></span></h3>
+            <button class="btn-primary" onclick="activateTracking()" style="margin-bottom: 15px;">🗺️ TRACK LOST PHONE</button>
+            <button class="btn-google" onclick="activateProtection()" style="border-color: #ff003c; color: #ff003c;">🛡️ PROTECT THIS DEVICE</button>
+            <button class="btn-logout" onclick="location.reload()" style="margin-top: 30px; width: 100%;">DISCONNECT (LOGOUT)</button>
+        </div>
+
+        <!-- 3. PROTECT MODE (Sends Location) -->
+        <div class="login-box" id="protect-section" style="display: none; text-align: center;">
+            <div class="blinking-dot" style="margin: 0 auto 15px auto;"></div>
+            <h3 style="color: #00ff41; margin-bottom: 15px;">🛡️ PROTECTION ACTIVE</h3>
+            <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Live GPS location is beaming to server. Leave this page open in background.</p>
+            <p id="gps-log" style="font-size: 13px; color: #00f3ff; font-weight: bold;"></p>
+            <button class="btn-logout" onclick="location.reload()" style="margin-top: 30px; width: 100%;">STOP PROTECTION</button>
+        </div>
+
+        <!-- 4. TRACK MODE (Shows Map) -->
+        <div id="track-section" style="display: none; width: 100%;">
+            <div style="height: 65vh; width: 100%; display: flex; gap: 20px; flex-wrap: wrap;">
+                <!-- Target Data -->
+                <div class="target-details hud-box" style="flex: 1; min-width: 250px;">
+                    <div class="corner-tl"></div><div class="corner-tr"></div>
+                    <div class="corner-bl"></div><div class="corner-br"></div>
+                    <h3><span class="blinking-dot" style="display:inline-block; margin-right:10px;"></span>TARGET DATA</h3>
+                    <div class="info-box">
+                        <p>STATUS: <span id="status" style="color: #ff003c;">CONNECTING...</span></p>
+                        <p>LATITUDE: <span id="lat">--.-----</span></p>
+                        <p>LONGITUDE: <span id="lng">--.-----</span></p>
+                        <p>ACCURACY: <span id="acc">-- meters</span></p>
+                    </div>
+                    <div class="radar-box"><div class="radar-scan"></div></div>
+                    <button class="btn-logout" onclick="location.reload()" style="margin-top: 20px; width: 100%;">EXIT MAP</button>
                 </div>
-                <div class="input-group">
-                    <label>CREATE_PASSWORD</label>
-                    <input type="password" placeholder="Create a strong password..." id="reg-password">
+                <!-- The Map -->
+                <div class="map-area hud-box" style="flex: 2; min-width: 300px; padding: 5px;">
+                    <div id="map" style="width: 100%; height: 100%; min-height: 300px; border-radius: 10px;"></div>
+                    <div class="crosshair"></div>
                 </div>
-                <div class="input-group">
-                    <label>PHONE NO. / IMEI</label>
-                    <input type="text" placeholder="Enter device identifier..." id="reg-device">
-                </div>
-                <button class="btn-primary" onclick="attemptRegister()" id="regBtn">CREATE ACCOUNT</button>
             </div>
         </div>
     </div>
 
-    <script src="js/app.js"></script>
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/app.js"></script> <!-- Wallpaper script -->
+    
     <script>
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.form-section').forEach(f => f.classList.remove('active'));
-            
-            if(tabName === 'login') {
-                document.querySelectorAll('.tab')[0].classList.add('active');
-                document.getElementById('login-form').classList.add('active');
-            } else {
-                document.querySelectorAll('.tab')[1].classList.add('active');
-                document.getElementById('register-form').classList.add('active');
-            }
+        let isLoginMode = true;
+        let globalDeviceId = "";
+        let map, marker, circle, trackingInterval;
+
+        function toggleForm() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('actionBtn').innerText = isLoginMode ? 'SECURE LOGIN' : 'REGISTER NOW';
+            document.getElementById('toggleBtn').innerText = isLoginMode ? 'CREATE NEW ACCOUNT' : 'BACK TO LOGIN';
+            document.getElementById('form-subtitle').innerText = isLoginMode ? 'GLOBAL ANTI-THEFT NETWORK' : 'NEW USER REGISTRATION';
         }
 
-        function attemptRegister() {
-            const user = document.getElementById('reg-username').value;
-            const pass = document.getElementById('reg-password').value;
-            const device = document.getElementById('reg-device').value;
-            const btn = document.getElementById('regBtn');
+        function processAuth() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const btn = document.getElementById('actionBtn');
 
-            if(user === "" || pass === "" || device === "") {
-                alert("Please fill all fields!");
-                return;
-            }
-
-            btn.innerText = "REGISTERING...";
+            if(!user || !pass) return alert("Enter Username & Password!");
+            btn.innerText = "PROCESSING...";
             
-            fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: user, password: pass, deviceId: device })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.success) {
-                    alert("Registration Successful! Please Login now.");
-                    switchTab('login');
-                } else {
-                    alert("ERROR: " + data.message);
-                }
-                btn.innerText = "CREATE ACCOUNT";
-            })
-            .catch(err => {
-                alert("Server Connection Error");
-                btn.innerText = "CREATE ACCOUNT";
-            });
-        }
-
-        function attemptLogin() {
-            const user = document.getElementById('login-username').value;
-            const pass = document.getElementById('login-password').value;
-            const btn = document.getElementById('loginBtn');
-
-            if(user === "" || pass === "") {
-                alert("PLEASE ENTER CREDENTIALS.");
-                return;
-            }
-
-            btn.innerText = "AUTHENTICATING...";
-
-            fetch('/api/login', {
+            const endpoint = isLoginMode ? '/api/login' : '/api/register';
+            fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: user, password: pass })
@@ -129,20 +109,89 @@
             .then(res => res.json())
             .then(data => {
                 if(data.success) {
-                    localStorage.setItem('sys_auth_token', 'granted');
-                    localStorage.setItem('sys_username', user);
-                    localStorage.setItem('sys_device_id', data.deviceId); 
-                    window.location.href = 'dashboard.html';
-                } else {
-                    alert("ERROR: " + data.message);
-                    btn.innerText = "INITIALIZE CONNECTION";
+                    if(isLoginMode) {
+                        globalDeviceId = data.deviceId;
+                        document.getElementById('auth-section').style.display = 'none';
+                        document.getElementById('menu-section').style.display = 'block';
+                        document.getElementById('agent-name').innerText = user.toUpperCase();
+                        document.getElementById('form-subtitle').innerText = 'ACTION MENU';
+                    } else {
+                        alert("Account Created! You can now Login.");
+                        toggleForm();
+                    }
+                } else { alert("Error: " + data.message); }
+                btn.innerText = isLoginMode ? "SECURE LOGIN" : "REGISTER NOW";
+            }).catch(err => { alert("Server error!"); btn.innerText = "SECURE LOGIN"; });
+        }
+
+        function activateProtection() {
+            document.getElementById('menu-section').style.display = 'none';
+            document.getElementById('protect-section').style.display = 'block';
+            document.getElementById('form-subtitle').innerText = 'DEVICE SECURED';
+            const logText = document.getElementById('gps-log');
+            logText.innerText = "Acquiring GPS Signal...";
+
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition((position) => {
+                    fetch('/api/update-location', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            deviceId: globalDeviceId, lat: position.coords.latitude,
+                            lng: position.coords.longitude, accuracy: position.coords.accuracy
+                        })
+                    }).then(() => logText.innerText = `Location Synced: ${new Date().toLocaleTimeString()}`);
+                }, (err) => {
+                    logText.innerText = "GPS Error: Please allow location access!";
+                    logText.style.color = "#ff003c";
+                }, { enableHighAccuracy: true, maximumAge: 0 });
+            }
+        }
+
+        function activateTracking() {
+            document.getElementById('menu-section').style.display = 'none';
+            document.getElementById('track-section').style.display = 'block';
+            document.getElementById('form-subtitle').innerText = 'LIVE TRACKING';
+            document.getElementById('main-container').style.maxWidth = '1100px'; 
+
+            setTimeout(() => {
+                if(!map) {
+                    map = L.map('map').setView([20.0, 0.0], 2);
+                    L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+                        maxZoom: 21, subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+                    }).addTo(map);
                 }
+                map.invalidateSize(); // FIX: Prevents grey map bug
+                trackingInterval = setInterval(fetchTargetLocation, 3000);
+                fetchTargetLocation();
+            }, 400); // Wait for CSS transition
+        }
+
+        function fetchTargetLocation() {
+            fetch('/api/get-location', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deviceId: globalDeviceId })
             })
-            .catch(err => {
-                alert("Server Error");
-                btn.innerText = "INITIALIZE CONNECTION";
-            });
+            .then(res => res.json())
+            .then(data => {
+                if (data.lat && data.lng) {
+                    document.getElementById('lat').innerText = data.lat.toFixed(5);
+                    document.getElementById('lng').innerText = data.lng.toFixed(5);
+                    document.getElementById('acc').innerText = Math.round(data.accuracy) + " meters";
+                    document.getElementById('status').innerText = data.status;
+                    document.getElementById('status').style.color = "#00ff41";
+
+                    if (marker) { map.removeLayer(marker); map.removeLayer(circle); }
+                    marker = L.marker([data.lat, data.lng]).addTo(map);
+                    circle = L.circle([data.lat, data.lng], { radius: data.accuracy, color: 'red' }).addTo(map);
+                    map.setView([data.lat, data.lng], 20); 
+                } else {
+                    document.getElementById('status').innerText = "TARGET OFFLINE";
+                    document.getElementById('status').style.color = "#ff003c";
+                }
+            }).catch(err => console.log(err));
         }
     </script>
 </body>
-</html
+</html>
