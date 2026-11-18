@@ -1,7 +1,9 @@
 const map = L.map('map').setView([20.0, 0.0], 2);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
+// 🌍 ASLI GOOGLE MAPS (Satellite + Streets)
+L.tileLayer('http://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+    maxZoom: 20,
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
 }).addTo(map);
 
 let marker, circle;
@@ -50,7 +52,8 @@ function fetchTargetLocation() {
             marker = L.marker([data.lat, data.lng]).addTo(map);
             circle = L.circle([data.lat, data.lng], { radius: data.accuracy, color: 'red' }).addTo(map);
 
-            map.setView([data.lat, data.lng], 16);
+            // Zoom level 18 kar diya hai taaki building exact dikhe
+            map.setView([data.lat, data.lng], 18); 
         } else {
             document.getElementById('status').innerText = "TARGET OFFLINE";
             document.getElementById('status').style.color = "#ff003c";
