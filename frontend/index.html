@@ -6,6 +6,40 @@
     <title>SecureTrace | Master Control</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* NAYA CSS: Full Screen Map Ke Liye */
+        .fullscreen-map {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9999 !important;
+            border-radius: 0 !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #000 !important;
+        }
+        .btn-fullscreen {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 10000;
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ff41;
+            border: 2px solid #00ff41;
+            padding: 8px 15px;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 5px;
+            transition: 0.3s;
+        }
+        .btn-fullscreen:hover {
+            background: #00ff41;
+            color: #000;
+        }
+    </style>
 </head>
 <body>
     <canvas id="matrix-canvas"></canvas>
@@ -52,6 +86,8 @@
         <!-- 4. TRACK MODE -->
         <div id="track-section" style="display: none; width: 100%;">
             <div style="height: 65vh; width: 100%; display: flex; gap: 20px; flex-wrap: wrap;">
+                
+                <!-- Target Details Box -->
                 <div class="target-details hud-box" style="flex: 1; min-width: 250px;">
                     <div class="corner-tl"></div><div class="corner-tr"></div>
                     <div class="corner-bl"></div><div class="corner-br"></div>
@@ -66,10 +102,13 @@
                     <button class="btn-logout" onclick="location.reload()" style="margin-top: 20px; width: 100%;">EXIT MAP</button>
                 </div>
                 
-                <div class="map-area hud-box" style="flex: 2; min-width: 300px; padding: 5px;">
+                <!-- MAP BOX (Yahan Full Screen Button Add Kiya Hai) -->
+                <div class="map-area hud-box" id="map-container" style="flex: 2; min-width: 300px; padding: 5px; position: relative;">
+                    <button class="btn-fullscreen" id="fs-btn" onclick="toggleFullScreen()">⛶ FULL SCREEN</button>
                     <div id="map" style="width: 100%; height: 100%; min-height: 300px; border-radius: 10px;"></div>
                     <div class="crosshair"></div>
                 </div>
+
             </div>
         </div>
     </div>
@@ -82,9 +121,27 @@
         let isLoginMode = true;
         let globalDeviceId = "";
         let map, marker, circle, trackingInterval;
-        
-        // NAYA VARIABLE (Auto-Zoom fix karne ke liye)
         let isFirstLocationLoad = true;
+        let isFullScreen = false; // Full Screen status
+
+        // Full Screen Toggle Function
+        function toggleFullScreen() {
+            const mapBox = document.getElementById('map-container');
+            const fsBtn = document.getElementById('fs-btn');
+            
+            if(!isFullScreen) {
+                mapBox.classList.add('fullscreen-map');
+                fsBtn.innerText = "✖ EXIT FULL SCREEN";
+                isFullScreen = true;
+            } else {
+                mapBox.classList.remove('fullscreen-map');
+                fsBtn.innerText = "⛶ FULL SCREEN";
+                isFullScreen = false;
+            }
+            
+            // Map ko naye size par set karna zaroori hai
+            setTimeout(() => { if(map) map.invalidateSize(); }, 300);
+        }
 
         function toggleForm() {
             isLoginMode = !isLoginMode;
@@ -164,7 +221,7 @@
                     }).addTo(map);
                 }
                 map.invalidateSize(); 
-                isFirstLocationLoad = true; // Tracking shuru hone par pehli baar true rahega
+                isFirstLocationLoad = true;
                 trackingInterval = setInterval(fetchTargetLocation, 3000);
                 fetchTargetLocation();
             }, 400); 
@@ -189,12 +246,10 @@
                     marker = L.marker([data.lat, data.lng]).addTo(map);
                     circle = L.circle([data.lat, data.lng], { radius: data.accuracy, color: 'red' }).addTo(map);
                     
-                    // FIXED: Sirf pehli baar zoom karega, uske baad user map ko freely ghuma sakta hai!
                     if (isFirstLocationLoad) {
                         map.setView([data.lat, data.lng], 18); 
                         isFirstLocationLoad = false;
                     }
-
                 } else {
                     document.getElementById('status').innerText = "TARGET OFFLINE";
                     document.getElementById('status').style.color = "#ff003c";
