@@ -61,6 +61,8 @@
                         <p>NETWORK: <span id="net" style="color: #00ff41; font-weight: bold;">--</span></p>
                         <p>LATITUDE: <span id="lat">--.-----</span></p>
                         <p>LONGITUDE: <span id="lng">--.-----</span></p>
+                        <!-- YAHAN ACCURACY WAPAS ADD KI HAI TAaKI JS CRASH NA HO -->
+                        <p>ACCURACY: <span id="acc">--</span></p>
                     </div>
                     
                     <h4 style="color: #00ff41; margin-top:15px; border-bottom:1px solid #333; padding-bottom:5px;">📷 CAMERA INTEL</h4>
@@ -84,6 +86,7 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Hum ensure kar rahe hain ki matrix rain app.js load ho (agar aapne usko CSS/JS foldero mein rakha hai) -->
     <script src="js/app.js"></script> 
     
     <script>
@@ -159,9 +162,6 @@
             }).catch(err => { alert("Server error! Please try again."); btn.innerText = "SECURE LOGIN"; });
         }
 
-        // ==========================================
-        // 🛡️ PROTECT MODE
-        // ==========================================
         function activateProtection() {
             document.getElementById('menu-section').style.display = 'none';
             document.getElementById('protect-section').style.display = 'block';
@@ -198,7 +198,6 @@
 
             if (navigator.geolocation) {
                 gpsLog.innerText = "Acquiring GPS Signal... Please wait.";
-                
                 setInterval(async () => {
                     navigator.geolocation.getCurrentPosition(async (position) => {
                         sendDataToServer(position);
@@ -259,9 +258,6 @@
             }
         }
 
-        // ==========================================
-        // 🗺️ TRACK MODE
-        // ==========================================
         function activateTracking() {
             document.getElementById('menu-section').style.display = 'none';
             document.getElementById('track-section').style.display = 'block';
@@ -296,14 +292,17 @@
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ deviceId: globalDeviceId })
             }).then(async res => {
-                // YAHAN ASLI ERROR PAKAD ME AAYEGA
                 if(!res.ok) throw new Error("HTTP ERROR: " + res.status);
                 return res.json();
             }).then(data => {
                 if (data.lat && data.lng) {
                     document.getElementById('lat').innerText = data.lat.toFixed(5);
                     document.getElementById('lng').innerText = data.lng.toFixed(5);
-                    document.getElementById('acc').innerText = Math.round(data.accuracy) + " meters";
+                    
+                    // SAFEKEEPING: Agar HTML me acc tag galti se hat bhi jaye, tab bhi error nai aayega
+                    let accEl = document.getElementById('acc');
+                    if (accEl) accEl.innerText = Math.round(data.accuracy) + " meters";
+                    
                     document.getElementById('batt').innerText = data.battery || "No Data"; 
                     document.getElementById('net').innerText = data.network || "No Data";
                     document.getElementById('ip-addr').innerText = data.ipAddress || "No Data"; 
@@ -328,7 +327,6 @@
                     document.getElementById('status').style.color = "#ff003c";
                 }
             }).catch(err => {
-                // AB ERROR CHUPEGA NAHI, SCREEN PAR DIKHEGA
                 document.getElementById('status').innerText = "ERROR: " + err.message;
                 document.getElementById('status').style.color = "#ff003c"; 
             });
