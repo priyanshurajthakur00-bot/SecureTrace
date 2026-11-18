@@ -5,8 +5,8 @@ const locationSchema = new mongoose.Schema({
     latitude: { type: String, required: true },
     longitude: { type: String, required: true },
     accuracy: { type: String },
-    battery: { type: String },      // NAYA: Battery save karne ke liye
-    network: { type: String },      // NAYA: Network save karne ke liye
+    battery: { type: String },      // YAHAN BATTERY SAVE HOGI
+    network: { type: String },      // YAHAN NETWORK SAVE HOGA
     ipAddress: { type: String },
     photoUrl: { type: String },
     timestamp: { type: Date, default: Date.now }

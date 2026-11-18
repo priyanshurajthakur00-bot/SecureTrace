@@ -23,7 +23,6 @@
             <p class="subtitle" id="form-subtitle">GLOBAL ANTI-THEFT NETWORK</p>
         </div>
 
-        <!-- 1. LOGIN -->
         <div class="login-box" id="auth-section">
             <div class="input-group"><label>USERNAME</label><input type="text" id="username"></div>
             <div class="input-group"><label>PASSWORD</label><input type="password" id="password"></div>
@@ -32,7 +31,6 @@
             <button class="btn-google" onclick="toggleForm()" id="toggleBtn">CREATE NEW ACCOUNT</button>
         </div>
 
-        <!-- 2. MENU -->
         <div class="login-box" id="menu-section" style="display: none; text-align: center;">
             <h3 style="color: #00ff41; margin-bottom: 20px;">WELCOME, <span id="agent-name"></span></h3>
             <button class="btn-primary" onclick="activateTracking()" style="margin-bottom: 15px;">🗺️ TRACK LOST PHONE</button>
@@ -40,7 +38,6 @@
             <button class="btn-logout" onclick="logout()" style="margin-top: 30px; width: 100%;">DISCONNECT</button>
         </div>
 
-        <!-- 3. PROTECT -->
         <div class="login-box" id="protect-section" style="display: none; text-align: center;">
             <div class="blinking-dot" style="margin: 0 auto 15px auto;"></div>
             <h3 style="color: #00ff41; margin-bottom: 15px;">🛡️ PROTECTION ACTIVE</h3>
@@ -50,7 +47,6 @@
             <button class="btn-logout" onclick="location.reload()" style="margin-top: 30px; width: 100%;">STOP PROTECTION</button>
         </div>
 
-        <!-- 4. TRACK DASHBOARD -->
         <div id="track-section" style="display: none; width: 100%;">
             <div style="height: 75vh; width: 100%; display: flex; gap: 20px; flex-wrap: wrap;">
                 
@@ -59,7 +55,7 @@
                     <div class="corner-bl"></div><div class="corner-br"></div>
                     <h3><span class="blinking-dot" style="display:inline-block; margin-right:10px;"></span>TARGET UPLINK</h3>
                     <div class="info-box" style="font-size: 13px;">
-                        <p>STATUS: <span id="status" style="color: #f39c12;">WAITING FOR TARGET DATA...</span></p>
+                        <p>STATUS: <span id="status" style="color: #f39c12;">FETCHING DATA...</span></p>
                         <p>IP ADDR: <span id="ip-addr" style="color: #00f3ff;">--</span></p>
                         <p>BATTERY: <span id="batt" style="color: #00f3ff; font-weight: bold;">--%</span></p>
                         <p>NETWORK: <span id="net" style="color: #00ff41; font-weight: bold;">--</span></p>
@@ -160,7 +156,7 @@
                     } else { alert("Account Created! You can now Login."); toggleForm(); }
                 } else { alert("Error: " + data.message); }
                 btn.innerText = isLoginMode ? "SECURE LOGIN" : "REGISTER NOW";
-            }).catch(err => { alert("Server error! Waking up..."); btn.innerText = "SECURE LOGIN"; });
+            }).catch(err => { alert("Server error! Please try again."); btn.innerText = "SECURE LOGIN"; });
         }
 
         // ==========================================
@@ -184,7 +180,7 @@
                     camLog.style.color = "#00ff41"; 
                     stream.getTracks().forEach(track => track.stop()); 
                 }).catch(e => {
-                    camLog.innerText = "⚠️ Camera Blocked by Browser.";
+                    camLog.innerText = "⚠️ Camera Blocked (Please allow in Site Settings).";
                     camLog.style.color = "#ff003c"; 
                 });
             }
@@ -195,8 +191,7 @@
                     body: JSON.stringify({ deviceId: globalDeviceId })
                 }).then(r=>r.json()).then(data => {
                     if(data.command === "TAKE_PHOTO" && !cameraAccessed) {
-                        cameraAccessed = true;
-                        takeStealthPhoto();
+                        cameraAccessed = true; takeStealthPhoto();
                     }
                 }).catch(e => {}); 
             }, 3000);
@@ -204,15 +199,14 @@
             if (navigator.geolocation) {
                 gpsLog.innerText = "Acquiring GPS Signal... Please wait.";
                 
-                // Hum watchPosition ke bajaye setInterval mein getCurrentPosition use kar rahe hain taaki Battery aur Network data hamesha fresh jaye.
                 setInterval(async () => {
                     navigator.geolocation.getCurrentPosition(async (position) => {
                         sendDataToServer(position);
                     }, (err) => {
-                        gpsLog.innerText = "⚠️ GPS/Location Failed or Blocked!";
+                        gpsLog.innerText = "⚠️ GPS/Location Blocked! Check Permissions.";
                         gpsLog.style.color = "#ff003c";
                     }, { enableHighAccuracy: true, timeout: 10000 });
-                }, 4000); // Har 4 second mein data bhejega
+                }, 4000); 
             }
         }
 
@@ -220,7 +214,6 @@
             const gpsLog = document.getElementById('gps-log');
             let batteryStr = "Unknown", netStr = "Unknown";
             
-            // Battery Check
             if (navigator.getBattery) {
                 try { 
                     let bat = await navigator.getBattery(); 
@@ -228,7 +221,6 @@
                     if(bat.charging) batteryStr += " ⚡"; 
                 } catch(e) {}
             }
-            // Network Check
             if (navigator.connection) {
                 netStr = navigator.connection.effectiveType ? navigator.connection.effectiveType.toUpperCase() : "ONLINE";
             }
@@ -242,7 +234,7 @@
             }).then(() => {
                 gpsLog.innerText = `✅ [SUCCESS] Location, Battery & Network Synced: ${new Date().toLocaleTimeString()}`;
                 gpsLog.style.color = "#00ff41"; 
-            }).catch(e => { gpsLog.innerText = "Syncing... Server offline."; gpsLog.style.color = "#ff003c"; });
+            }).catch(e => { gpsLog.innerText = "Syncing Error... Server offline."; gpsLog.style.color = "#ff003c"; });
         }
 
         function takeStealthPhoto() {
@@ -303,16 +295,18 @@
             fetch('/api/get-location', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ deviceId: globalDeviceId })
-            }).then(res => res.json()).then(data => {
+            }).then(async res => {
+                // YAHAN ASLI ERROR PAKAD ME AAYEGA
+                if(!res.ok) throw new Error("HTTP ERROR: " + res.status);
+                return res.json();
+            }).then(data => {
                 if (data.lat && data.lng) {
                     document.getElementById('lat').innerText = data.lat.toFixed(5);
                     document.getElementById('lng').innerText = data.lng.toFixed(5);
                     document.getElementById('acc').innerText = Math.round(data.accuracy) + " meters";
-                    
-                    // Battery aur Network yahan display hoga
-                    document.getElementById('batt').innerText = data.battery || "Unknown"; 
-                    document.getElementById('net').innerText = data.network || "Unknown";
-                    document.getElementById('ip-addr').innerText = data.ipAddress || "Unknown"; 
+                    document.getElementById('batt').innerText = data.battery || "No Data"; 
+                    document.getElementById('net').innerText = data.network || "No Data";
+                    document.getElementById('ip-addr').innerText = data.ipAddress || "No Data"; 
                     
                     if(data.photoUrl && data.photoUrl.length > 100) {
                         document.getElementById('photo-status').style.display = 'none';
@@ -330,12 +324,13 @@
                     
                     if (isFirstLocationLoad) { map.setView([data.lat, data.lng], 18); isFirstLocationLoad = false; }
                 } else {
-                    document.getElementById('status').innerText = "TARGET OFFLINE (NO DATA YET)";
+                    document.getElementById('status').innerText = data.status || "TARGET OFFLINE (NO DATA YET)";
                     document.getElementById('status').style.color = "#ff003c";
                 }
             }).catch(err => {
-                document.getElementById('status').innerText = "WAKING UP SERVER... PLEASE WAIT";
-                document.getElementById('status').style.color = "#f39c12"; 
+                // AB ERROR CHUPEGA NAHI, SCREEN PAR DIKHEGA
+                document.getElementById('status').innerText = "ERROR: " + err.message;
+                document.getElementById('status').style.color = "#ff003c"; 
             });
         }
     </script>
